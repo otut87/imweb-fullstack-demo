@@ -146,6 +146,19 @@ const exec = async (func, args) => {
   return out && out[0] && out[0].result;
 };
 
+// chrome.storage 가드 — storage 권한이 아직 반영 안 된 상태(manifest 새로고침 전)에서도
+// 팝업이 죽지 않게 한다. 저장만 건너뛰고 프록시 생성은 정상 동작.
+const storeGet = async (key) => {
+  try { if (chrome.storage && chrome.storage.local) return await chrome.storage.local.get(key); } catch (e) { /* 무시 */ }
+  return {};
+};
+const storeSet = async (obj) => {
+  try { if (chrome.storage && chrome.storage.local) await chrome.storage.local.set(obj); } catch (e) { /* 무시 */ }
+};
+const storeRemove = async (key) => {
+  try { if (chrome.storage && chrome.storage.local) await chrome.storage.local.remove(key); } catch (e) { /* 무시 */ }
+};
+
 const setHint = (msg, isErr) => {
   const h = $('hint');
   h.textContent = msg || '';
@@ -324,7 +337,7 @@ const init = async () => {
     const v = $('key').value.trim();
     if (!v) return;
     apiKey = v;
-    await chrome.storage.local.set({ apiKey: v });
+    await storeSet({ apiKey: v });
     $('setup').hidden = true;
     candidates = [];
     updateMode();
@@ -332,12 +345,12 @@ const init = async () => {
   });
   $('delkey').addEventListener('click', async () => {
     apiKey = '';
-    await chrome.storage.local.remove('apiKey');
+    await storeRemove('apiKey');
     updateSetupUI();
     updateMode();
   });
 
-  const stored = await chrome.storage.local.get('apiKey');
+  const stored = await storeGet('apiKey');
   apiKey = stored.apiKey || '';
 
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
