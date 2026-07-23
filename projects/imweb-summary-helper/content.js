@@ -1,12 +1,15 @@
 // 아임웹 상품 요약설명 도우미 — content script (MAIN world)
-// 관리자 상품 편집 화면의 "요약 설명" Froala 에디터 위에 초안 생성 패널을 주입한다.
-// 페이지 컨텍스트에서 실행되므로 window.FroalaEditor 인스턴스에 직접 접근할 수 있다.
+// 관리자 상품 편집 화면의 "요약 설명" Froala 에디터에 토글형 초안 생성 패널을 붙인다.
+// 기본은 접힘 — 에디터 툴바 우측의 칩을 눌러 연다. 페이지 컨텍스트에서 실행되므로
+// window.FroalaEditor 인스턴스에 직접 접근할 수 있다.
 (() => {
   'use strict';
   if (window.__iwSummaryHelperLoaded) return;
   window.__iwSummaryHelperLoaded = true;
 
   const PANEL_ID = 'iw-sum-helper';
+  const CHIP_ID = 'iwsh-chip';
+  const OPEN_KEY = 'iwshOpen';  // 열림 상태 기억 (localStorage)
   const REC_MIN = 80;   // 메타 설명 권장 최소 글자수
   const REC_MAX = 160;  // 메타 설명 권장 최대 글자수
   const UNDO_MAX = 10;
@@ -126,12 +129,18 @@
 
   // ---------- 패널 ----------
   const STYLE = `
+#${CHIP_ID}{position:absolute;top:5px;right:8px;z-index:20;border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:999px;padding:3px 10px;font-size:11.5px;line-height:1.4;cursor:pointer;font-family:inherit}
+#${CHIP_ID}:hover{border-color:#9ca3af}
+#${CHIP_ID}.on{background:#111827;border-color:#111827;color:#fff}
 #${PANEL_ID}{border:1px solid #e5e7eb;background:#fafafa;border-radius:10px;padding:10px 12px;margin:8px 0 10px;font-size:12.5px;color:#374151;display:flex;flex-direction:column;gap:8px;font-family:inherit}
 #${PANEL_ID} .iwsh-head{display:flex;align-items:center;justify-content:space-between}
 #${PANEL_ID} .iwsh-title{font-weight:700;color:#111827}
+#${PANEL_ID} .iwsh-headright{display:flex;align-items:center;gap:10px}
 #${PANEL_ID} .iwsh-count{font-variant-numeric:tabular-nums;color:#6b7280}
 #${PANEL_ID} .iwsh-count.ok{color:#059669}
 #${PANEL_ID} .iwsh-count.over{color:#dc2626}
+#${PANEL_ID} .iwsh-close{border:0;background:transparent;color:#6b7280;font-size:16px;line-height:1;cursor:pointer;padding:2px 4px;font-family:inherit}
+#${PANEL_ID} .iwsh-close:hover{color:#111827}
 #${PANEL_ID} .iwsh-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #${PANEL_ID} .iwsh-seg{display:inline-flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;background:#fff}
 #${PANEL_ID} .iwsh-seg button{border:0;background:#fff;padding:5px 12px;font-size:12.5px;cursor:pointer;color:#374151;font-family:inherit}
@@ -151,7 +160,10 @@
     panel.innerHTML = `
       <div class="iwsh-head">
         <span class="iwsh-title">요약설명 도우미</span>
-        <span class="iwsh-count" data-role="count">-</span>
+        <span class="iwsh-headright">
+          <span class="iwsh-count" data-role="count">-</span>
+          <button type="button" class="iwsh-close" data-role="close" aria-label="닫기">&#215;</button>
+        </span>
       </div>
       <div class="iwsh-row">
         <div class="iwsh-seg" data-role="tones"></div>
@@ -174,9 +186,23 @@
       st.textContent = STYLE;
       document.head.appendChild(st);
     }
-    const panel = buildPanel();
+    // 재마운트 시 남아있을 수 있는 이전 칩 정리
+    const leftoverChip = document.getElementById(CHIP_ID);
+    if (leftoverChip) leftoverChip.remove();
+
+    // 토글 칩 — 에디터 툴바 우측 빈 공간에 얹는다 (레이아웃 밀지 않음)
+    const box = parts.box;
+    if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.id = CHIP_ID;
+    chip.textContent = '요약설명 도우미';
+    box.appendChild(chip);
+
+    // 패널은 항상 DOM에 두되(감지 가드용) 접힘 상태는 display로 제어
     // .fr-box는 라벨의 부모(wrap)보다 안쪽에 중첩되어 있으므로 반드시 box의 실제 부모 기준으로 삽입한다
-    parts.box.parentElement.insertBefore(panel, parts.box);
+    const panel = buildPanel();
+    box.parentElement.insertBefore(panel, box);
 
     const q = (role) => panel.querySelector(`[data-role="${role}"]`);
     const tonesBox = q('tones'), kindSel = q('kind'), preview = q('preview');
@@ -242,14 +268,33 @@
       parts.el.addEventListener('input', updateCount);
     }
 
+    // 열기/닫기 — 칩 토글 + 패널 닫기 버튼, 상태는 localStorage에 기억
+    const setOpen = (open) => {
+      panel.style.display = open ? '' : 'none';
+      chip.classList.toggle('on', open);
+      try { localStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch (e) { /* 프라이빗 모드 등 — 무시 */ }
+      if (open) updateCount();
+    };
+    chip.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(panel.style.display === 'none');
+    });
+    q('close').addEventListener('click', () => setOpen(false));
+
     regenerate();
     updateCount();
+    let openInit = false;
+    try { openInit = localStorage.getItem(OPEN_KEY) === '1'; } catch (e) { /* 무시 */ }
+    setOpen(openInit);
   };
 
-  // SPA 전환·늦은 렌더에 대응: 에디터 등장을 폴링으로 감지해 (재)마운트
-  setInterval(() => {
+  // SPA 전환·늦은 렌더에 대응: 즉시 1회 + 폴링으로 에디터 등장을 감지해 (재)마운트
+  const tryMount = () => {
     if (document.getElementById(PANEL_ID)) return;
     const parts = getEditorParts();
     if (parts && parts.box) mount(parts);
-  }, 800);
+  };
+  tryMount();
+  setInterval(tryMount, 800);
 })();
