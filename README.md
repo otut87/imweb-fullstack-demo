@@ -16,9 +16,10 @@
 
 | 데모 | 링크 |
 |---|---|
-| 🛍️ 쇼핑몰 (상세페이지 픽업 UX) | https://support51251.imweb.me/shop/?idx=1 |
-| 🖥️ 지점 픽업 ERP (실시간) | https://15.165.133.165.sslip.io/erp |
-| 📚 아임웹 연동 기술 노트 | [docs/imweb-integration-notes.md](docs/imweb-integration-notes.md) |
+| 쇼핑몰 (상세페이지 픽업 UX) | https://support51251.imweb.me/shop/?idx=1 |
+| 지점 픽업 ERP (실시간) | https://15.165.133.165.sslip.io/erp |
+| 아임웹 연동 기술 노트 | [docs/imweb-integration-notes.md](docs/imweb-integration-notes.md) |
+| 제작자 포트폴리오 | https://designdoit.imweb.me |
 
 ---
 
@@ -63,7 +64,7 @@ flowchart LR
 
 ```
 고객 주문 (캘린더·시간·지점 선택, 지점별 잔여 재고 확인)
-  → 📱 담당자 카카오톡 알림 + ERP 실시간 등장 [결제대기]
+  → 담당자 카카오톡 알림 + ERP 실시간 등장 [결제대기]
   → ERP [입금 확인 처리] 클릭 → 아임웹 입금완료 동기화 → [픽업대기] 자동 전환
   → 고객 방문 → ERP [픽업완료] → 아임웹 '배송완료' 역동기화 · 지점 재고 차감
   → 취소/반품은 아임웹 처리 시 ERP 자동 반영
@@ -93,4 +94,4 @@ flowchart LR
 
 ---
 
-<sub>이 저장소는 아임웹 풀스택 전문가 지원용 데모입니다. 제작·문의: DEDO (support@dedo.kr) · 협업 파트너: 디자인온엑스</sub>
+<sub>이 저장소는 아임웹 풀스택 전문가 지원용 데모입니다. 제작: 디두(DEDO) — 포트폴리오 https://designdoit.imweb.me · 협업 파트너: 디자인온엑스</sub>

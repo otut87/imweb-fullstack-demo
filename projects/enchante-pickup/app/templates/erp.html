@@ -196,7 +196,7 @@ const DEMO_LINKS = {
 (function demoBanner() {
   const el = document.createElement("div");
   el.id = "demo-banner";
-  el.innerHTML = `<span>🛠️ <b>디두(DEDO)</b> 제작 · 아임웹 풀스택 개발 샘플 —
+  el.innerHTML = `<span><b>디두(DEDO)</b> 제작 · 아임웹 풀스택 개발 샘플 —
     주문 웹훅·Open API·양방향 동기화·카카오 알림 시연 · 협업 <b>DESIGN ONX</b></span>`;
   const links = document.createElement("span");
   links.className = "db-links";
@@ -289,7 +289,7 @@ function orderCard(o, flash) {
     const pushable = ["픽업완료"].includes(sel.value);
     logLine(`${o.order_no} → ${sel.value}` +
       (res.imweb_synced ? " · 아임웹 반영 ✓"
-        : (pushable ? ` · ⚠️ 아임웹 미반영${res.imweb_error ? ": " + res.imweb_error : ""}` : "")));
+        : (pushable ? ` · 아임웹 미반영${res.imweb_error ? ": " + res.imweb_error : ""}` : "")));
     if (pushable && !res.imweb_synced && res.imweb_error) alert("아임웹 반영 실패: " + res.imweb_error);
     await loadOrders();
   };
@@ -308,7 +308,7 @@ function orderCard(o, flash) {
       if (r.ok) {
         logLine(`${o.order_no} 입금 확인 완료 · 아임웹 반영 ✓ → ${d.status}`);
       } else {
-        logLine(`⚠️ ${o.order_no} 입금 확인 실패: ${d.detail || r.status}`);
+        logLine(`${o.order_no} 입금 확인 실패: ${d.detail || r.status}`);
         alert(d.detail || "입금 확인 처리에 실패했습니다");
         pay.disabled = false; pay.textContent = "입금 확인 처리";
       }
