@@ -84,6 +84,12 @@ flowchart LR
 
 ## 주요 구축 경험
 
+**아임웹 커스터마이징 실적 (운영 사이트)**
+
+- **카데이** — 신차 장기렌트·리스 비교견적: [카테고리 활용 차량 선택 필터](https://doda561515844.imweb.me/creator) · [상세 입력폼 차종 자동입력](https://doda561515844.imweb.me/117/?idx=379) · [구글시트 차량리스트-입력폼 연동](https://doda561515844.imweb.me/lease)
+- **한국동행금거래소** — 금 시세 오픈 API 실시간 연동 — https://gold-korea.imweb.me
+- **NOMAD GOODS** — 상품 상세페이지 재구성 — https://nomadgoods.imweb.me
+
 **운영 중인 서비스**
 
 - **베스트잡** — 인력 아웃소싱 기업(제조 도급·물류·인재파견) 사이트. 채용공고 등록·조회와 상담 문의, 프론트·백엔드 구축 — https://bestjob.kr
