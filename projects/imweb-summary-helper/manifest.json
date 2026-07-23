@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "아임웹 상품 요약설명 도우미",
-  "version": "2.0.0",
-  "description": "아임웹 관리자 상품 수정 화면에서 아이콘을 누르면 상품명·카테고리를 반영한 요약 설명 초안을 만들어 에디터에 바로 적용합니다.",
+  "version": "2.1.0",
+  "description": "아임웹 관리자 상품 수정 화면에서 상품 정보와 특징 키워드로 Claude AI가 요약 설명 초안을 만들어 에디터에 바로 적용합니다.",
   "author": "DEDO",
   "minimum_chrome_version": "111",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "action": {
     "default_title": "요약설명 도우미",
     "default_popup": "popup.html",
