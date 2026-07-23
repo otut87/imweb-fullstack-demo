@@ -1,0 +1,6 @@
+{$DOMAIN} {
+	reverse_proxy erp:8000 {
+		# SSE 스트림 즉시 플러시
+		flush_interval -1
+	}
+}

@@ -1,0 +1,348 @@
+<!-- ============================================================
+  Enchanté 픽업 옵션 UX v3 (사이트 코드)
+  설치: 아임웹 관리자 > 환경설정 > SEO > "바디(body) 삽입 코드"에 전체 붙여넣기
+
+  v3 설계 (깜빡임·렉 원천 제거):
+  - 원본 옵션 영역(#prod_options)과 선택박스(#prod_selected_options)는 CSS로
+    로드 즉시 숨김 → FOUC 없음
+  - 커스텀 패널(#pk-panel)은 아임웹 재렌더 영역 "밖"(#goods_wrap 앞)에 1회 생성
+    → 옵션을 바꿔도 패널이 파괴되지 않음 (렉·깜빡임 해결)
+  - 모든 조작은 클릭 시점에 현재 DOM을 조회해 원본에 위임
+    (지점 = 드롭다운 항목 대리클릭 / 날짜·시간 = 입력형 옵션 값+change /
+     수량 = SITE_SHOP_DETAIL.increase·decreaseOptionCount / 총액 = .total_price 미러)
+  - 지점 재선택 시 기존 선택행 자동 제거 → 항상 단일 픽업 선택 유지
+  - UI 흐름: 인라인 캘린더(과거 불가) → 날짜 선택 시 시간 슬롯 표시 → 지점(재고 표시)
+             → 수량·총액만 노출
+  - 픽업 옵션이 없는 상품이면 3초 후 원본 UI 자동 복원
+============================================================ -->
+<style>
+/* 원본 숨김 (로드 즉시) — 픽업 옵션 없는 상품은 JS가 pk-noenhance로 복원 */
+body:not(.pk-noenhance) #prod_options,
+body:not(.pk-noenhance) #prod_selected_options { display: none !important; }
+
+#pk-panel { margin: 4px 0 18px; }
+.pk-sec-title { font-size: 13px; font-weight: 700; color: #15151a; margin: 18px 0 10px; }
+.pk-sec-title:first-child { margin-top: 0; }
+
+/* 캘린더 */
+.pk-cal { border: 1px solid #e4e4e8; border-radius: 2px; padding: 14px; background: #fff; }
+.pk-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.pk-cal-title { font-size: 14px; font-weight: 700; color: #15151a; }
+.pk-cal-nav { width: 30px; height: 30px; border: 1px solid #e4e4e8; background: #fff; border-radius: 2px; cursor: pointer; font-size: 14px; color: #15151a; }
+.pk-cal-nav:disabled { opacity: .3; cursor: default; }
+.pk-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.pk-cal-dow { text-align: center; font-size: 11px; color: #8a8a92; padding: 6px 0; }
+.pk-cal-day { border: 0; background: transparent; padding: 9px 0; font-size: 13px; color: #15151a; cursor: pointer; border-radius: 2px; }
+.pk-cal-day:hover:not(:disabled) { background: #f2f2f4; }
+.pk-cal-day:disabled { color: #d0d0d5; cursor: default; }
+.pk-cal-day.pk-on { background: #15151a; color: #fff; font-weight: 700; }
+.pk-cal-day.pk-today:not(.pk-on) { box-shadow: inset 0 0 0 1px #15151a; }
+
+/* 버튼 공통 */
+.pk-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.pk-btn { flex: 1 1 calc(33.33% - 8px); min-width: 84px; padding: 12px 8px; border: 1px solid #d8d8dc; background: #fff; color: #15151a; font-size: 14px; text-align: center; cursor: pointer; border-radius: 2px; transition: border-color .15s, background .15s; }
+.pk-btn:hover:not(:disabled) { border-color: #15151a; }
+.pk-btn.pk-on { background: #15151a; border-color: #15151a; color: #fff; font-weight: 700; }
+.pk-btn:disabled { opacity: .4; cursor: not-allowed; }
+.pk-time .pk-btn { flex: 1 1 calc(25% - 8px); min-width: 64px; padding: 10px 4px; font-size: 13px; }
+.pk-stock { display: block; font-size: 11px; color: #8a8a92; margin-top: 3px; font-weight: 400; }
+.pk-btn.pk-on .pk-stock { color: #d8d8dc; }
+.pk-hide { display: none !important; }
+.pk-note { font-size: 12px; color: #8a8a92; margin-top: 8px; }
+.pk-warn { color: #c0392b; }
+
+/* 요약(수량·총액) */
+.pk-summary { border-top: 1px solid #15151a; margin-top: 18px; padding-top: 14px; }
+.pk-sum-line { font-size: 13px; color: #56565e; margin-bottom: 10px; }
+.pk-sum-row { display: flex; align-items: center; justify-content: space-between; }
+.pk-qty { display: inline-flex; align-items: center; border: 1px solid #d8d8dc; border-radius: 2px; }
+.pk-qty button { width: 34px; height: 34px; border: 0; background: #fff; font-size: 16px; cursor: pointer; color: #15151a; }
+.pk-qty span { min-width: 36px; text-align: center; font-size: 14px; }
+.pk-total { font-size: 18px; font-weight: 700; color: #15151a; }
+.pk-total small { font-size: 12px; color: #8a8a92; font-weight: 400; margin-right: 6px; }
+</style>
+<script>
+(function () {
+  "use strict";
+  var TIME_SLOTS = ["10:00","11:00","12:00","13:00","14:00","15:00","16:00",
+                    "17:00","18:00","19:00","20:00","21:00"];
+  var OPTION_DATE = "픽업 희망일";
+  var OPTION_STORE = "지점";
+  var ERP_BASE = "https://15.165.133.165.sslip.io";
+  var DOW = ["일","월","화","수","목","금","토"];
+
+  var state = { date: "", time: "", store: "" };
+  var panel = null, calBody = null, timeWrap = null, storeWrap = null,
+      summary = null, sumLine = null, sumQty = null, sumTotal = null,
+      viewYear = 0, viewMonth = 0; // 캘린더 표시 월
+
+  function norm(t) { return (t || "").replace(/ /g, " ").replace(/\s+/g, " ").trim(); }
+  function pad(n) { return String(n).length < 2 ? "0" + n : String(n); }
+  function todayIso() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+
+  // ── 원본 DOM 조회 (항상 클릭 시점 기준 — 재렌더에 안전) ─────────────
+  function findDateInput() {
+    var titles = document.querySelectorAll("#prod_options .option_title");
+    for (var i = 0; i < titles.length; i++) {
+      if (norm(titles[i].textContent).indexOf(OPTION_DATE) > -1) {
+        return titles[i].parentElement.querySelector("input._requireInputOption");
+      }
+    }
+    return null;
+  }
+  function findStoreItems() {
+    var titles = document.querySelectorAll("#prod_options .option_title");
+    for (var i = 0; i < titles.length; i++) {
+      if (norm(titles[i].textContent).indexOf(OPTION_STORE) > -1) {
+        var wrap = titles[i].parentElement.querySelector("._form_select_wrap");
+        if (wrap) return wrap.querySelectorAll(".dropdown-menu .dropdown-item a");
+      }
+    }
+    return [];
+  }
+  function selectedRows() {
+    return document.querySelectorAll("#prod_selected_options ._selected_require_option");
+  }
+  function clearSelectedRows() {
+    // 픽업은 단일 선택 — 기존 행 전부 제거 (항상 0번을 반복 제거)
+    var guard = 0;
+    while (selectedRows().length && guard < 10) {
+      try { window.SITE_SHOP_DETAIL.removeSelectedOption(0, "prod"); } catch (e) { break; }
+      guard++;
+    }
+  }
+
+  // 날짜(+시간)와 지점이 모두 준비되면 원본에 등록
+  function register() {
+    if (!state.date || !state.store) return;
+    var input = findDateInput();
+    if (!input) return;
+    clearSelectedRows();
+    input.value = state.date + (state.time ? " " + state.time : "");
+    input.dispatchEvent(new Event("change", { bubbles: false }));
+    var items = findStoreItems();
+    for (var i = 0; i < items.length; i++) {
+      var label = norm((items[i].querySelector("span") || items[i]).textContent);
+      if (label === state.store) { items[i].click(); break; }
+    }
+    refreshSummary();
+  }
+
+  // ── 캘린더 ──────────────────────────────────────────────────────────
+  function buildCalendar(host) {
+    var now = new Date();
+    viewYear = now.getFullYear(); viewMonth = now.getMonth();
+    var head = document.createElement("div"); head.className = "pk-cal-head";
+    var prev = document.createElement("button"); prev.type="button"; prev.className="pk-cal-nav"; prev.textContent="‹";
+    var next = document.createElement("button"); next.type="button"; next.className="pk-cal-nav"; next.textContent="›";
+    var title = document.createElement("div"); title.className = "pk-cal-title";
+    head.appendChild(prev); head.appendChild(title); head.appendChild(next);
+    host.appendChild(head);
+    calBody = document.createElement("div"); calBody.className = "pk-cal-grid";
+    host.appendChild(calBody);
+
+    function render() {
+      title.textContent = viewYear + "년 " + (viewMonth + 1) + "월";
+      var cur = new Date();
+      prev.disabled = (viewYear === cur.getFullYear() && viewMonth === cur.getMonth());
+      calBody.innerHTML = "";
+      DOW.forEach(function (d) {
+        var c = document.createElement("div"); c.className = "pk-cal-dow"; c.textContent = d;
+        calBody.appendChild(c);
+      });
+      var first = new Date(viewYear, viewMonth, 1).getDay();
+      var days = new Date(viewYear, viewMonth + 1, 0).getDate();
+      for (var b = 0; b < first; b++) calBody.appendChild(document.createElement("div"));
+      var tIso = todayIso();
+      for (var d = 1; d <= days; d++) {
+        (function (day) {
+          var iso = viewYear + "-" + pad(viewMonth + 1) + "-" + pad(day);
+          var btn = document.createElement("button");
+          btn.type = "button"; btn.className = "pk-cal-day"; btn.textContent = day;
+          if (iso === tIso) btn.classList.add("pk-today");
+          if (iso === state.date) btn.classList.add("pk-on");
+          if (iso < tIso) btn.disabled = true; // 지난 날짜 선택 불가
+          btn.addEventListener("click", function () {
+            state.date = iso;
+            var on = calBody.querySelector(".pk-on");
+            if (on) on.classList.remove("pk-on");
+            btn.classList.add("pk-on");
+            timeWrap.classList.remove("pk-hide"); // 날짜 선택 후 시간 노출
+            register();
+          });
+          calBody.appendChild(btn);
+        })(d);
+      }
+    }
+    prev.addEventListener("click", function () { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); });
+    next.addEventListener("click", function () { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); });
+    render();
+  }
+
+  // ── 재고 ────────────────────────────────────────────────────────────
+  function productName() {
+    var meta = document.querySelector('meta[property="og:title"]');
+    var t = (meta && meta.content) || document.title || "";
+    return norm(t.split(" : ")[0]);
+  }
+  var stockPromise = null;
+  function getStock() {
+    if (!stockPromise) {
+      stockPromise = fetch(ERP_BASE + "/public/stock?product=" + encodeURIComponent(productName()))
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .catch(function () { return []; });
+    }
+    return stockPromise;
+  }
+
+  // ── 수량·총액 (원본 미러) ───────────────────────────────────────────
+  function refreshSummary() {
+    var rows = selectedRows();
+    if (!rows.length) { summary.classList.add("pk-hide"); return; }
+    summary.classList.remove("pk-hide");
+    var tit = rows[0].querySelector(".area_tit span");
+    sumLine.textContent = tit ? norm(tit.textContent) : "";
+    var count = rows[0].querySelector("input._count");
+    sumQty.textContent = count ? count.value : "1";
+    var total = document.querySelector("#prod_selected_options .total_price");
+    var label = document.querySelector("#prod_selected_options .opt_block.total span");
+    sumTotal.innerHTML = (label ? "<small>" + norm(label.textContent) + "</small>" : "") +
+                         (total ? norm(total.textContent) : "");
+  }
+
+  // ── 패널 구성 ───────────────────────────────────────────────────────
+  function buildPanel() {
+    panel = document.createElement("div");
+    panel.id = "pk-panel";
+
+    var t1 = document.createElement("div"); t1.className = "pk-sec-title"; t1.textContent = "픽업 날짜";
+    panel.appendChild(t1);
+    var cal = document.createElement("div"); cal.className = "pk-cal";
+    panel.appendChild(cal);
+    buildCalendar(cal);
+
+    timeWrap = document.createElement("div");
+    timeWrap.className = "pk-hide"; // 날짜 선택 전 숨김
+    var t2 = document.createElement("div"); t2.className = "pk-sec-title"; t2.textContent = "픽업 시간";
+    timeWrap.appendChild(t2);
+    var slots = document.createElement("div"); slots.className = "pk-btns pk-time";
+    TIME_SLOTS.forEach(function (t) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "pk-btn"; b.textContent = t;
+      b.addEventListener("click", function () {
+        var on = slots.querySelector(".pk-on");
+        if (on) on.classList.remove("pk-on");
+        b.classList.add("pk-on");
+        state.time = t;
+        register();
+      });
+      slots.appendChild(b);
+    });
+    timeWrap.appendChild(slots);
+    panel.appendChild(timeWrap);
+
+    var t3 = document.createElement("div"); t3.className = "pk-sec-title"; t3.textContent = "픽업 지점";
+    panel.appendChild(t3);
+    storeWrap = document.createElement("div"); storeWrap.className = "pk-btns";
+    panel.appendChild(storeWrap);
+    var note = document.createElement("div"); note.className = "pk-note";
+    note.textContent = "날짜와 지점을 선택하면 픽업 예약 항목이 자동 구성됩니다.";
+    panel.appendChild(note);
+
+    summary = document.createElement("div");
+    summary.className = "pk-summary pk-hide";
+    sumLine = document.createElement("div"); sumLine.className = "pk-sum-line";
+    summary.appendChild(sumLine);
+    var row = document.createElement("div"); row.className = "pk-sum-row";
+    var qty = document.createElement("div"); qty.className = "pk-qty";
+    var minus = document.createElement("button"); minus.type="button"; minus.textContent = "−";
+    sumQty = document.createElement("span"); sumQty.textContent = "1";
+    var plus = document.createElement("button"); plus.type="button"; plus.textContent = "+";
+    minus.addEventListener("click", function () {
+      try { window.SITE_SHOP_DETAIL.decreaseOptionCount(0, "prod"); } catch (e) {}
+      refreshSummary();
+    });
+    plus.addEventListener("click", function () {
+      try { window.SITE_SHOP_DETAIL.increaseOptionCount(0, "prod"); } catch (e) {}
+      refreshSummary();
+    });
+    qty.appendChild(minus); qty.appendChild(sumQty); qty.appendChild(plus);
+    row.appendChild(qty);
+    sumTotal = document.createElement("div"); sumTotal.className = "pk-total";
+    row.appendChild(sumTotal);
+    summary.appendChild(row);
+    panel.appendChild(summary);
+    return panel;
+  }
+
+  function buildStoreButtons() {
+    var items = findStoreItems();
+    if (!items.length || storeWrap.dataset.built) return;
+    storeWrap.dataset.built = "1";
+    var labels = [];
+    items.forEach ? null : (items = [].slice.call(items));
+    [].forEach.call(items, function (a) {
+      var label = norm((a.querySelector("span") || a).textContent);
+      if (!label || labels.indexOf(label) > -1) return;
+      labels.push(label);
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "pk-btn";
+      b.appendChild(document.createTextNode(label));
+      if (state.store === label) b.classList.add("pk-on");
+      b.addEventListener("click", function () {
+        if (!state.date) { // 날짜부터
+          var calEl = panel.querySelector(".pk-cal");
+          calEl.style.borderColor = "#c0392b";
+          setTimeout(function () { calEl.style.borderColor = ""; }, 900);
+          return;
+        }
+        var on = storeWrap.querySelector(".pk-on");
+        if (on) on.classList.remove("pk-on");
+        b.classList.add("pk-on");
+        state.store = label;
+        register();
+      });
+      storeWrap.appendChild(b);
+    });
+    getStock().then(function (rows) {
+      if (!rows || !rows.length) return;
+      var byStore = {};
+      rows.forEach(function (r) { byStore[r.store] = r.qty; });
+      storeWrap.querySelectorAll(".pk-btn").forEach(function (b) {
+        var name = norm(b.childNodes[0].textContent);
+        if (!(name in byStore)) return;
+        var tag = document.createElement("span");
+        tag.className = "pk-stock";
+        tag.textContent = byStore[name] > 0 ? "재고 " + byStore[name] : "품절";
+        b.appendChild(tag);
+        if (byStore[name] <= 0) b.disabled = true;
+      });
+    });
+  }
+
+  // ── 부착·감시 루프 (패널은 재렌더 영역 밖 → 파괴되지 않음) ─────────
+  var started = Date.now();
+  function tick() {
+    var goods = document.getElementById("goods_wrap");
+    var opts = document.getElementById("prod_options");
+    if (!goods || !opts) return; // 상품 상세 아님
+    var hasPickup = !!findDateInput();
+    if (!hasPickup) {
+      // 픽업 옵션 없는 상품 — 3초 지나면 원본 복원
+      if (Date.now() - started > 3000) document.body.classList.add("pk-noenhance");
+      return;
+    }
+    document.body.classList.remove("pk-noenhance");
+    if (!panel) buildPanel();
+    if (panel.parentElement !== goods.parentElement || panel.nextElementSibling !== goods) {
+      goods.parentElement.insertBefore(panel, goods); // PC/모바일 레이아웃 이동 추적
+    }
+    buildStoreButtons();
+    refreshSummary(); // 총액·수량 미러 (문자열 비교 수준의 가벼운 갱신)
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tick);
+  } else { tick(); }
+  setInterval(tick, 400);
+})();
+</script>

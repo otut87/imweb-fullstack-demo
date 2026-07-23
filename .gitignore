@@ -1,0 +1,9 @@
+.env
+*.db
+*.pem
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+docs/imweb-openapi-chunk.js

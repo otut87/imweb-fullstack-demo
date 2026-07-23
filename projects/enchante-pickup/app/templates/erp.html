@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enchanté 지점 픽업 ERP</title>
+<style>
+  :root {
+    --bg: #f6f6f7; --surface: #ffffff; --line: #ececef; --line-strong: #dcdce1;
+    --ink: #191a20; --sub: #6b6e76; --faint: #9a9da6; --accent: #15151a;
+    --amber-bg:#fff4e0; --amber-fg:#a05c00;
+    --blue-bg:#e8f1fd; --blue-fg:#1d5fbf;
+    --indigo-bg:#eeeafc; --indigo-fg:#5b3fc4;
+    --violet-bg:#f3e8fb; --violet-fg:#8d33c8;
+    --green-bg:#e5f6ec; --green-fg:#177245;
+    --red-bg:#fdeaea; --red-fg:#c0392b;
+    --gray-bg:#f0f0f2; --gray-fg:#6b6e76;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(25,26,32,.05), 0 4px 16px rgba(25,26,32,.05);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
+         background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; }
+  button { font-family: inherit; }
+
+  header { position: sticky; top: 0; z-index: 20; background: rgba(255,255,255,.92);
+           backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .head-in { max-width: 1440px; margin: 0 auto; padding: 14px 28px;
+             display: flex; align-items: center; gap: 14px; }
+  .brand { font-family: Georgia, "Times New Roman", serif; font-size: 21px; letter-spacing: .02em; }
+  .head-label { font-size: 12px; color: var(--sub); border-left: 1px solid var(--line-strong);
+                padding-left: 14px; letter-spacing: .14em; }
+  .head-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  #clock { font-size: 13px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  #conn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+          padding: 5px 12px; border-radius: 99px; background: var(--gray-bg); color: var(--gray-fg); }
+  #conn::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  #conn.live { background: var(--green-bg); color: var(--green-fg); }
+
+  main { max-width: 1440px; margin: 0 auto; padding: 26px 28px 60px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 14px; margin-bottom: 26px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+         padding: 16px 20px; box-shadow: var(--shadow); }
+  .kpi .k-label { font-size: 12px; color: var(--sub); margin-bottom: 6px; }
+  .kpi .k-value { font-size: 26px; font-weight: 700; letter-spacing: -.02em;
+                  font-variant-numeric: tabular-nums; }
+  .kpi .k-value small { font-size: 13px; font-weight: 500; color: var(--faint); margin-left: 2px; }
+
+  .sec-head { display: flex; align-items: center; gap: 14px; margin: 6px 0 14px; flex-wrap: wrap; }
+  h2 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .chip { border: 1px solid var(--line-strong); background: var(--surface); color: var(--sub);
+          font-size: 12px; padding: 5px 12px; border-radius: 99px; cursor: pointer; }
+  .chip:hover { border-color: var(--ink); color: var(--ink); }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip b { font-weight: 700; margin-left: 4px; }
+
+  #board { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+           gap: 16px; margin-bottom: 34px; }
+  .col { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+         box-shadow: var(--shadow); overflow: hidden; }
+  .col-head { display: flex; align-items: center; justify-content: space-between;
+              padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .col-head h3 { font-size: 14px; font-weight: 700; }
+  .col-count { font-size: 12px; font-weight: 700; background: var(--gray-bg); color: var(--ink);
+               border-radius: 99px; padding: 2px 10px; min-width: 28px; text-align: center; }
+  .col-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 90px; }
+  .empty { border: 1px dashed var(--line-strong); border-radius: 10px; color: var(--faint);
+           font-size: 12px; text-align: center; padding: 22px 0; }
+
+  .order { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: #fff; }
+  .order.flash { animation: flash 1.8s ease-out; }
+  @keyframes flash { 0% { background: var(--blue-bg); border-color: var(--blue-fg); }
+                     100% { background: #fff; border-color: var(--line); } }
+  .o-top { display: flex; align-items: baseline; gap: 8px; }
+  .o-time { font-size: 20px; font-weight: 800; letter-spacing: -.02em;
+            font-variant-numeric: tabular-nums; }
+  .o-date { font-size: 12px; color: var(--sub); }
+  .o-badge { margin-left: auto; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 10px;
+           border-radius: 99px; background: var(--gray-bg); color: var(--gray-fg); white-space: nowrap; }
+  .badge.결제대기 { background: var(--amber-bg); color: var(--amber-fg); }
+  .badge.픽업대기 { background: var(--violet-bg); color: var(--violet-fg); }
+  .badge.픽업완료 { background: var(--green-bg); color: var(--green-fg); }
+  .badge.취소, .badge.반품 { background: var(--red-bg); color: var(--red-fg); }
+  .o-items { font-size: 13px; font-weight: 600; margin-top: 7px; }
+  .o-meta { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .grade-chip { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 7px;
+                border-radius: 99px; background: var(--blue-bg); color: var(--blue-fg);
+                vertical-align: 1px; margin-left: 2px; }
+  .o-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+  .o-amount { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .o-no { font-size: 11px; color: var(--faint); margin-top: 6px; }
+  .status-sel { appearance: none; -webkit-appearance: none; font-size: 12px; font-weight: 600;
+                color: var(--ink); border: 1px solid var(--line-strong); background: #fff;
+                border-radius: 8px; padding: 6px 26px 6px 10px; cursor: pointer;
+                background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b6e76' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+                background-repeat: no-repeat; background-position: right 9px center; }
+  .status-sel:hover { border-color: var(--ink); }
+  .btn-pay { width: 100%; margin-top: 10px; padding: 9px; background: var(--accent); color: #fff;
+             border: 0; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .btn-pay:hover { opacity: .86; }
+  .btn-pay:disabled { opacity: .5; cursor: default; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+           box-shadow: var(--shadow); overflow: hidden; margin-bottom: 34px; }
+  .inv-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .inv-grid th { text-align: left; font-size: 12px; font-weight: 600; color: var(--sub);
+                 background: #fafafb; padding: 11px 18px; border-bottom: 1px solid var(--line); }
+  .inv-grid td { padding: 10px 18px; border-bottom: 1px solid var(--line); }
+  .inv-grid tr:last-child td { border-bottom: 0; }
+  .qty-pill { display: inline-block; min-width: 44px; text-align: center; font-weight: 700;
+              font-variant-numeric: tabular-nums; padding: 3px 10px; border-radius: 8px;
+              background: var(--gray-bg); }
+  .qty-pill.low { background: var(--red-bg); color: var(--red-fg); }
+  .adj { display: inline-flex; gap: 6px; }
+  .adj button { width: 28px; height: 28px; border: 1px solid var(--line-strong); background: #fff;
+                border-radius: 8px; cursor: pointer; font-size: 14px; color: var(--ink); line-height: 1; }
+  .adj button:hover { border-color: var(--ink); }
+
+  #log { padding: 6px 18px 12px; max-height: 200px; overflow: auto; }
+  .log-line { display: flex; gap: 10px; align-items: baseline; padding: 6px 0;
+              border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .log-line:last-child { border-bottom: 0; }
+  .log-time { color: var(--faint); font-variant-numeric: tabular-nums; flex: none; }
+  .log-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue-fg); flex: none;
+             position: relative; top: -1px; }
+  .log-empty { color: var(--faint); font-size: 12px; padding: 14px 0; }
+
+  /* 데모 소개 플로팅 배너 */
+  main { padding-bottom: 110px; }
+  #demo-banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 50;
+    display: flex; align-items: center; gap: 14px; background: rgba(25,26,32,.95); color: #fff;
+    padding: 11px 18px 11px 22px; border-radius: 99px; box-shadow: 0 10px 34px rgba(25,26,32,.28);
+    font-size: 12.5px; backdrop-filter: blur(6px); max-width: calc(100vw - 32px); white-space: nowrap; }
+  #demo-banner b { font-weight: 700; }
+  #demo-banner .db-links { display: flex; gap: 8px; }
+  #demo-banner a { color: #fff; text-decoration: none; border: 1px solid rgba(255,255,255,.35);
+    padding: 5px 13px; border-radius: 99px; font-weight: 600; font-size: 12px; transition: all .15s; }
+  #demo-banner a:hover { background: #fff; color: var(--ink); }
+  #demo-banner .db-close { background: none; border: 0; color: rgba(255,255,255,.55);
+    cursor: pointer; font-size: 13px; padding: 2px 4px; }
+  #demo-banner .db-close:hover { color: #fff; }
+
+  @media (max-width: 640px) {
+    .head-in, main { padding-left: 16px; padding-right: 16px; }
+    .head-label { display: none; }
+    .o-time { font-size: 18px; }
+    #demo-banner { flex-wrap: wrap; justify-content: center; border-radius: 16px;
+                   white-space: normal; text-align: center; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-in">
+    <div class="brand">Enchanté</div>
+    <div class="head-label">STORE PICKUP ERP</div>
+    <div class="head-right">
+      <span id="clock"></span>
+      <span id="conn">연결 중</span>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="sec-head">
+    <h2>지점별 픽업 주문</h2>
+    <div class="filters" id="filters"></div>
+  </div>
+  <div id="board"></div>
+
+  <div class="sec-head"><h2>지점 재고</h2></div>
+  <div class="panel">
+    <table class="inv-grid" id="inv">
+      <thead><tr><th>지점</th><th>상품</th><th style="text-align:center">재고</th><th style="width:90px"></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="sec-head"><h2>실시간 이벤트</h2></div>
+  <div class="panel"><div id="log"><div class="log-empty">아직 수신된 이벤트가 없습니다</div></div></div>
+</main>
+<script>
+// 픽업 운영 상태 (배송없음 기준 5종) — 픽업완료는 아임웹 배송완료로 역방향 동기화
+const STATUSES = ["결제대기", "픽업대기", "픽업완료", "취소", "반품"];
+
+// 데모 소개 배너 링크 — 저장소/구축기 공개 후 URL 채우면 버튼 노출
+const DEMO_LINKS = { github: "", notion: "" };
+(function demoBanner() {
+  const el = document.createElement("div");
+  el.id = "demo-banner";
+  el.innerHTML = `<span>🛠️ 이 ERP는 <b>아임웹 풀스택 개발 샘플</b>입니다 —
+    주문 웹훅·Open API·양방향 상태 동기화·카카오 알림 시연</span>`;
+  const links = document.createElement("span");
+  links.className = "db-links";
+  if (DEMO_LINKS.github)
+    links.insertAdjacentHTML("beforeend",
+      `<a href="${DEMO_LINKS.github}" target="_blank" rel="noopener">GitHub</a>`);
+  if (DEMO_LINKS.notion)
+    links.insertAdjacentHTML("beforeend",
+      `<a href="${DEMO_LINKS.notion}" target="_blank" rel="noopener">구축기</a>`);
+  el.appendChild(links);
+  const close = document.createElement("button");
+  close.className = "db-close"; close.textContent = "✕";
+  close.onclick = () => el.remove();
+  el.appendChild(close);
+  document.addEventListener("DOMContentLoaded", () => document.body.appendChild(el));
+  if (document.readyState !== "loading") document.body.appendChild(el);
+})();
+let stores = [], orders = [], filterStatus = "";
+
+const fmtWon = n => (n || 0).toLocaleString() + "원";
+async function json(url, options) { const r = await fetch(url, options); return r.json(); }
+
+/* "2026-07-26 14:00" → {time, date, ts} */
+function parsePickup(s) {
+  if (!s) return { time: "-", date: "픽업일 미지정", ts: Infinity };
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/);
+  if (!m) return { time: s, date: "", ts: Infinity };
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  const dow = "일월화수목금토"[d.getDay()];
+  const ts = d.getTime() + (m[4] ? (+m[4]) * 3600e3 + (+m[5]) * 60e3 : 0);
+  return { time: m[4] ? `${m[4]}:${m[5]}` : "시간 미지정", date: `${+m[2]}/${+m[3]}(${dow})`, ts };
+}
+const todayIso = () => { const d = new Date(), p = n => String(n).padStart(2, "0");
+                         return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+
+function renderKpis() {
+  const active = orders.filter(o => !["취소", "반품", "픽업완료"].includes(o.status));
+  const todayPickups = orders.filter(o => (o.pickup_date || "").startsWith(todayIso())
+                                          && !["취소", "반품"].includes(o.status));
+  const kpis = [
+    ["오늘 픽업", todayPickups.length, "건"],
+    ["진행 중 주문", active.length, "건"],
+    ["결제대기", orders.filter(o => o.status === "결제대기").length, "건"],
+    ["픽업대기", orders.filter(o => o.status === "픽업대기").length, "건"],
+  ];
+  document.getElementById("kpis").innerHTML = kpis.map(([label, value, unit]) =>
+    `<div class="kpi"><div class="k-label">${label}</div>
+     <div class="k-value">${value}<small>${unit}</small></div></div>`).join("");
+}
+
+function renderFilters() {
+  const counts = {};
+  orders.forEach(o => counts[o.status] = (counts[o.status] || 0) + 1);
+  const el = document.getElementById("filters");
+  el.innerHTML = "";
+  const mk = (label, value) => {
+    const b = document.createElement("button");
+    b.className = "chip" + (filterStatus === value ? " on" : "");
+    b.innerHTML = value ? `${label}<b>${counts[value] || 0}</b>` : `전체<b>${orders.length}</b>`;
+    b.onclick = () => { filterStatus = value; renderAll(); };
+    el.appendChild(b);
+  };
+  mk("전체", "");
+  STATUSES.forEach(s => { if (counts[s]) mk(s, s); });
+}
+
+function orderCard(o, flash) {
+  const p = parsePickup(o.pickup_date);
+  const el = document.createElement("div");
+  el.className = "order" + (flash ? " flash" : "");
+  el.innerHTML = `
+    <div class="o-top">
+      <span class="o-time">${p.time}</span><span class="o-date">${p.date}</span>
+      <span class="o-badge"><span class="badge ${o.status}">${o.status}</span></span>
+    </div>
+    <div class="o-items">${o.items_summary || "상품 정보 없음"}</div>
+    <div class="o-meta">${o.customer_name || "고객"}${o.member_grade
+      ? ` <span class="grade-chip">${o.member_grade}</span>` : ""}</div>`;
+  const foot = document.createElement("div");
+  foot.className = "o-foot";
+  foot.innerHTML = `<span class="o-amount">${fmtWon(o.amount)}</span>`;
+  const sel = document.createElement("select");
+  sel.className = "status-sel";
+  STATUSES.forEach(s => sel.add(new Option(s, s, false, s === o.status)));
+  sel.onchange = async () => {
+    const res = await json(`/erp/api/orders/${o.id}/status`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: sel.value }),
+    });
+    const pushable = ["픽업완료"].includes(sel.value);
+    logLine(`${o.order_no} → ${sel.value}` +
+      (res.imweb_synced ? " · 아임웹 반영 ✓"
+        : (pushable ? ` · ⚠️ 아임웹 미반영${res.imweb_error ? ": " + res.imweb_error : ""}` : "")));
+    if (pushable && !res.imweb_synced && res.imweb_error) alert("아임웹 반영 실패: " + res.imweb_error);
+    await loadOrders();
+  };
+  foot.appendChild(sel);
+  el.appendChild(foot);
+
+  // 결제대기 주문: 입금 확인 전용 버튼 (실패를 명시적으로 표시)
+  if (o.status === "결제대기") {
+    const pay = document.createElement("button");
+    pay.className = "btn-pay";
+    pay.textContent = "입금 확인 처리";
+    pay.onclick = async () => {
+      pay.disabled = true; pay.textContent = "처리 중…";
+      const r = await fetch(`/erp/api/orders/${o.id}/confirm-payment`, { method: "POST" });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) {
+        logLine(`${o.order_no} 입금 확인 완료 · 아임웹 반영 ✓ → ${d.status}`);
+      } else {
+        logLine(`⚠️ ${o.order_no} 입금 확인 실패: ${d.detail || r.status}`);
+        alert(d.detail || "입금 확인 처리에 실패했습니다");
+        pay.disabled = false; pay.textContent = "입금 확인 처리";
+      }
+      await loadOrders();
+    };
+    el.appendChild(pay);
+  }
+
+  el.insertAdjacentHTML("beforeend", `<div class="o-no">No.${o.order_no}</div>`);
+  return el;
+}
+
+function renderBoard(flashNo) {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  const groups = [...stores];
+  if (orders.some(o => !stores.includes(o.store_name))) groups.push("미지정");
+  for (const store of groups) {
+    let list = orders.filter(o => store === "미지정"
+      ? !stores.includes(o.store_name) : o.store_name === store);
+    if (filterStatus) list = list.filter(o => o.status === filterStatus);
+    list.sort((a, b) => parsePickup(a.pickup_date).ts - parsePickup(b.pickup_date).ts);
+    const col = document.createElement("div");
+    col.className = "col";
+    col.innerHTML = `<div class="col-head"><h3>${store}</h3><span class="col-count">${list.length}</span></div>`;
+    const body = document.createElement("div");
+    body.className = "col-body";
+    if (!list.length) body.innerHTML = `<div class="empty">표시할 주문이 없습니다</div>`;
+    for (const o of list) body.appendChild(orderCard(o, o.order_no === flashNo));
+    col.appendChild(body);
+    board.appendChild(col);
+  }
+}
+
+async function renderInventory() {
+  const rows = await json("/erp/api/inventory");
+  const tbody = document.querySelector("#inv tbody");
+  tbody.innerHTML = "";
+  for (const it of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${it.store_name}</td><td>${it.product_name}</td>
+      <td style="text-align:center"><span class="qty-pill ${it.qty <= 3 ? "low" : ""}">${it.qty}</span></td>`;
+    const td = document.createElement("td");
+    const adj = document.createElement("div");
+    adj.className = "adj";
+    for (const d of [-1, 1]) {
+      const b = document.createElement("button");
+      b.textContent = d > 0 ? "+" : "−";
+      b.onclick = () => json(`/erp/api/inventory/${it.id}/adjust`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delta: d }),
+      });
+      adj.appendChild(b);
+    }
+    td.appendChild(adj);
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+}
+
+function logLine(text) {
+  const el = document.getElementById("log");
+  const empty = el.querySelector(".log-empty");
+  if (empty) empty.remove();
+  el.insertAdjacentHTML("afterbegin",
+    `<div class="log-line"><span class="log-time">${new Date().toLocaleTimeString()}</span>
+     <span class="log-dot"></span><span>${text}</span></div>`);
+}
+function notify(title, body) {
+  if ("Notification" in window && Notification.permission === "granted")
+    new Notification(title, { body });
+}
+
+async function loadOrders(flashNo) {
+  orders = await json("/erp/api/orders");
+  renderAll(flashNo);
+}
+function renderAll(flashNo) { renderKpis(); renderFilters(); renderBoard(flashNo); }
+
+async function main() {
+  setInterval(() => {
+    document.getElementById("clock").textContent =
+      new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  }, 1000);
+  stores = await json("/erp/api/stores");
+  await loadOrders();
+  await renderInventory();
+  if ("Notification" in window && Notification.permission === "default")
+    Notification.requestPermission();
+
+  const es = new EventSource("/erp/api/stream");
+  const conn = document.getElementById("conn");
+  es.onopen = () => { conn.textContent = "실시간 연결됨"; conn.classList.add("live"); };
+  es.onerror = () => { conn.textContent = "재연결 중"; conn.classList.remove("live"); };
+  es.addEventListener("order", async e => {
+    const d = JSON.parse(e.data);
+    logLine(`주문 ${d.order_no} (${d.store}) — ${d.status}`);
+    if (d.is_new) notify(`${d.store} 신규 픽업 주문`, `${d.items} · ${d.pickup_date || ""}`);
+    await loadOrders(d.order_no);
+    await renderInventory();
+  });
+  es.addEventListener("status", () => loadOrders());
+  es.addEventListener("inventory", () => renderInventory());
+}
+main();
+</script>
+</body>
+</html>
