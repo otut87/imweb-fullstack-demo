@@ -1,12 +1,12 @@
-// 아임웹 상품 요약설명 도우미 — 팝업 UI (v2.1)
+// 아임웹 상품 요약설명 도우미 — 팝업 UI (v2.3)
 // 아이콘을 누른 순간에만 동작한다(activeTab). 활성 탭에서 상품 정보(상품명·카테고리·가격·기존 요약)를
-// 읽고, Claude API(Haiku)로 상품 맞춤 요약설명 3안을 생성해 Froala 에디터에 적용한다.
-// API 키가 없으면 내장 템플릿 모드로 폴백. 키는 chrome.storage.local에만 저장된다(코드에 하드코딩 금지).
+// 읽고, 데모 서버 프록시(/api/summary — 서버가 Claude Haiku 호출)로 맞춤 요약설명 3안을 생성해
+// Froala 에디터에 적용한다. 키·설정 없이 바로 작동하며, 생성 실패 시 내장 템플릿으로 폴백한다.
 'use strict';
 
-const MODEL = 'claude-haiku-4-5';
-// 기본 생성 경로 — 데모 서버 프록시 (키 없이 작동, 서버가 Claude API 호출·레이트리밋)
+// 데모 서버 프록시 — API 키는 서버 .env에만 존재(확장·저장소 미포함), IP당 레이트리밋
 const PROXY_URL = 'https://15.165.133.165.sslip.io/api/summary';
+
 const TONES = ['정중한', '감성적', '간결한'];
 const TONE_DESC = ['정중한 — 격식 있고 신뢰감 있게', '감성적 — 감각적이고 서정적으로', '간결한 — 짧고 임팩트 있게'];
 const KINDS = ['핵심 소개', '감성 어필', '혜택 강조']; // 템플릿 폴백용
@@ -24,7 +24,7 @@ const josa = (word, withB, withoutB) => {
   return b ? withB : withoutB;
 };
 
-// ---------- 템플릿 (API 키가 없을 때의 폴백) ----------
+// ---------- 템플릿 (서버 생성 실패 시 폴백) ----------
 const TEMPLATES = {
   '정중한': {
     '핵심 소개': (n, c) => `${n}${josa(n, '은', '는')} 엄선한 성분과 검증된 품질로 완성한 ${c}입니다. 매일의 루틴에 신뢰할 수 있는 선택이 되어드립니다.`,
@@ -130,7 +130,6 @@ const PAGE_APPLY = (text) => {
 const $ = (id) => document.getElementById(id);
 let tabId = null;
 let ctx = null;
-let apiKey = '';
 let toneIdx = 0;
 let kindIdx = 0;       // 템플릿 폴백 로테이션
 let candidates = [];   // AI 생성 결과 (최대 3안)
@@ -144,19 +143,6 @@ const exec = async (func, args) => {
     args: args || []
   });
   return out && out[0] && out[0].result;
-};
-
-// chrome.storage 가드 — storage 권한이 아직 반영 안 된 상태(manifest 새로고침 전)에서도
-// 팝업이 죽지 않게 한다. 저장만 건너뛰고 프록시 생성은 정상 동작.
-const storeGet = async (key) => {
-  try { if (chrome.storage && chrome.storage.local) return await chrome.storage.local.get(key); } catch (e) { /* 무시 */ }
-  return {};
-};
-const storeSet = async (obj) => {
-  try { if (chrome.storage && chrome.storage.local) await chrome.storage.local.set(obj); } catch (e) { /* 무시 */ }
-};
-const storeRemove = async (key) => {
-  try { if (chrome.storage && chrome.storage.local) await chrome.storage.local.remove(key); } catch (e) { /* 무시 */ }
 };
 
 const setHint = (msg, isErr) => {
@@ -191,75 +177,27 @@ const templateFill = () => {
   r.textContent = '다른 문구';
 };
 
-const buildPrompt = () => {
-  const lines = ['다음 상품의 쇼핑몰 요약설명(메타 디스크립션) 3안을 작성해라.', ''];
-  lines.push('상품명: ' + ((ctx && ctx.name) || '(미입력)'));
-  if (ctx && ctx.cats && ctx.cats.length) lines.push('카테고리: ' + ctx.cats.join(', '));
-  if (ctx && ctx.price) lines.push('판매가: ' + ctx.price + '원');
-  if (ctx && ctx.summary) lines.push('기존 요약설명(참고): ' + ctx.summary);
-  const kw = $('kw').value.trim();
-  if (kw) lines.push('특징 키워드(반드시 자연스럽게 반영): ' + kw);
-  lines.push('톤: ' + TONE_DESC[toneIdx]);
-  lines.push('');
-  lines.push('규칙:');
-  lines.push('- 각 안은 한국어 80~160자, 1~2문장');
-  lines.push('- 이모지·해시태그·최상급 과장 표현 금지');
-  lines.push('- 상품명을 자연스럽게 포함');
-  lines.push('- 세 안은 서로 문장 구조가 달라야 함');
-  lines.push('- 출력은 JSON 문자열 배열만: ["안1","안2","안3"]');
-  return lines.join('\n');
-};
-
 const generate = async () => {
   const btn = $('gen');
   const orig = btn.textContent;
   btn.disabled = true;
   btn.textContent = '생성 중...';
   try {
-    let arr;
-    if (apiKey) {
-      // 개인 API 키 모드 — Anthropic 직접 호출
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 600,
-          system: '너는 한국 이커머스 상품의 요약설명(메타 디스크립션) 전문 카피라이터다. 반드시 JSON 문자열 배열만 출력한다.',
-          messages: [{ role: 'user', content: buildPrompt() }]
-        })
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        const msg = data && data.error && data.error.message;
-        throw new Error(msg || ('HTTP ' + res.status));
-      }
-      let raw = ((data.content && data.content[0] && data.content[0].text) || '').trim();
-      if (raw.startsWith('```')) raw = raw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
-      arr = JSON.parse(raw);
-    } else {
-      // 기본 모드 — 데모 서버 프록시 (키 불요)
-      const res = await fetch(PROXY_URL, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          name: (ctx && ctx.name) || '',
-          cats: (ctx && ctx.cats) || [],
-          price: (ctx && ctx.price) || '',
-          summary: (ctx && ctx.summary) || '',
-          keywords: $('kw').value.trim(),
-          tone: TONE_DESC[toneIdx]
-        })
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error((data && data.detail) || ('HTTP ' + res.status));
-      arr = data && data.drafts;
-    }
+    const res = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: (ctx && ctx.name) || '',
+        cats: (ctx && ctx.cats) || [],
+        price: (ctx && ctx.price) || '',
+        summary: (ctx && ctx.summary) || '',
+        keywords: $('kw').value.trim(),
+        tone: TONE_DESC[toneIdx]
+      })
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.detail) || ('HTTP ' + res.status));
+    const arr = data && data.drafts;
     if (!Array.isArray(arr)) throw new Error('응답 형식 오류');
     candidates = arr.filter((x) => typeof x === 'string' && x.trim()).slice(0, 5);
     if (!candidates.length) throw new Error('응답 형식 오류');
@@ -274,22 +212,6 @@ const generate = async () => {
     btn.disabled = false;
     btn.textContent = orig;
   }
-};
-
-// ---------- 설정 (API 키) ----------
-const updateMode = () => {
-  $('gen').hidden = false;
-  if (!candidates.length && !$('preview').value) {
-    setHint(apiKey
-      ? '개인 API 키 모드 — [AI 초안 생성]을 눌러 상품 맞춤 문구를 만드세요.'
-      : '[AI 초안 생성]을 누르면 상품 정보와 키워드로 맞춤 문구를 만듭니다. 키 설정 없이 바로 사용 가능합니다.');
-  }
-};
-
-const updateSetupUI = () => {
-  $('key').value = '';
-  $('key').placeholder = apiKey ? '저장된 키: ' + apiKey.slice(0, 12) + '... (새 키 입력 가능)' : 'Claude API 키 (sk-ant-...)';
-  $('delkey').hidden = !apiKey;
 };
 
 const init = async () => {
@@ -329,29 +251,6 @@ const init = async () => {
       btn.disabled = false;
     }
   });
-  $('cfg').addEventListener('click', () => {
-    $('setup').hidden = !$('setup').hidden;
-    if (!$('setup').hidden) updateSetupUI();
-  });
-  $('savekey').addEventListener('click', async () => {
-    const v = $('key').value.trim();
-    if (!v) return;
-    apiKey = v;
-    await storeSet({ apiKey: v });
-    $('setup').hidden = true;
-    candidates = [];
-    updateMode();
-    setHint('키 저장 완료 — [AI 초안 생성]을 눌러보세요.');
-  });
-  $('delkey').addEventListener('click', async () => {
-    apiKey = '';
-    await storeRemove('apiKey');
-    updateSetupUI();
-    updateMode();
-  });
-
-  const stored = await storeGet('apiKey');
-  apiKey = stored.apiKey || '';
 
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   tabId = tabs && tabs[0] && tabs[0].id;
@@ -366,7 +265,7 @@ const init = async () => {
   try { toneIdx = Math.min(TONES.length - 1, Math.max(0, parseInt(localStorage.getItem('tone') || '0', 10) || 0)); } catch (e) { /* 무시 */ }
   $('main').hidden = false;
   renderTones();
-  updateMode();
+  setHint('[AI 초안 생성]을 누르면 상품 정보와 키워드로 맞춤 문구를 만듭니다.');
 };
 
 init();

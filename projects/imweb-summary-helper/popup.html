@@ -6,16 +6,7 @@
   body { width: 330px; margin: 0; font-family: 'Malgun Gothic', system-ui, sans-serif; font-size: 13px; color: #374151; background: #fff; }
   .head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 13px 14px 9px; }
   .head b { font-size: 13.5px; color: #111827; white-space: nowrap; }
-  .headr { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
   #ctx { font-size: 11px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .linkbtn { border: 0; background: transparent; color: #2563eb; font-size: 12px; cursor: pointer; padding: 0; font-family: inherit; white-space: nowrap; }
-  #setup { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 6px; }
-  .setrow { display: flex; gap: 6px; }
-  #key { flex: 1; border: 1px solid #d1d5db; border-radius: 8px; padding: 7px 9px; font-size: 12px; font-family: inherit; color: #111827; }
-  #key:focus { outline: none; border-color: #9ca3af; }
-  #savekey { border: 1px solid #111827; background: #111827; color: #fff; border-radius: 8px; padding: 0 12px; font-size: 12.5px; cursor: pointer; font-family: inherit; }
-  .sethint { font-size: 11px; color: #9ca3af; }
-  #delkey { color: #dc2626; cursor: pointer; }
   #main { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 9px; }
   .seg { display: flex; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; }
   .seg button { flex: 1; border: 0; background: #fff; padding: 8px 0; font-size: 12.5px; cursor: pointer; color: #374151; font-family: inherit; }
@@ -33,7 +24,7 @@
   #apply { border: 0; background: #111827; color: #fff; border-radius: 8px; padding: 10px 0; font-size: 13.5px; cursor: pointer; font-family: inherit; width: 100%; }
   #apply:disabled { opacity: .6; cursor: default; }
   #apply.done { background: #059669; }
-  #hint { font-size: 11.5px; color: #6b7280; line-height: 1.5; min-height: 0; }
+  #hint { font-size: 11.5px; color: #6b7280; line-height: 1.5; }
   #hint.err { color: #dc2626; }
   #empty { padding: 28px 18px; text-align: center; color: #6b7280; font-size: 12.5px; line-height: 1.7; }
 </style>
@@ -41,17 +32,7 @@
 <body>
   <div class="head">
     <b>요약설명 도우미</b>
-    <span class="headr">
-      <span id="ctx"></span>
-      <button type="button" id="cfg" class="linkbtn">설정</button>
-    </span>
-  </div>
-  <div id="setup" hidden>
-    <div class="setrow">
-      <input id="key" type="password" placeholder="Claude API 키 (sk-ant-...)">
-      <button type="button" id="savekey">저장</button>
-    </div>
-    <div class="sethint">키는 이 브라우저(chrome.storage.local)에만 저장됩니다 · 발급: console.anthropic.com · <span id="delkey" hidden>키 삭제</span></div>
+    <span id="ctx"></span>
   </div>
   <div id="main" hidden>
     <div class="seg" id="tones"></div>

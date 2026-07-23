@@ -13,7 +13,6 @@
 2. 톤 선택(정중한 / 감성적 / 간결한) + 특징 키워드 입력(선택, Enter로 바로 생성) → [AI 초안 생성]
 3. [다른 안]으로 3안 중 선택 → 미리보기에서 자유 수정 → [에디터에 적용] → 팝업 자동 닫힘
 4. 아임웹 [저장]을 눌러야 실제 저장된다. 적용 취소는 에디터에서 Ctrl+Z
-5. (선택) 개인 Claude API 키를 쓰려면 우측 상단 [설정]에 입력 — 키는 이 브라우저의 `chrome.storage.local`에만 저장된다
 
 ## 기능
 
@@ -33,12 +32,11 @@
 
 ## 동작 원리
 
-- 권한은 `activeTab` + `scripting` + `storage`뿐 — 아이콘을 누른 탭에만, 누른 순간에만 접근한다. 상시 콘텐츠 스크립트 없음
-- 생성(기본): 데모 서버의 FastAPI 프록시(`POST /api/summary`)를 호출한다 — **Claude API 키는 서버 .env에만 존재**하고 확장·저장소에는 없다. 서버가 IP당 시간 20회 레이트리밋 후 Claude(`claude-haiku-4-5`)를 호출해 JSON 3안을 반환하며, CORS는 `chrome-extension://` 오리진을 정규식으로 허용
-- 생성(개인 키 모드): [설정]에 키 등록 시 팝업이 Anthropic API를 직접 호출한다 — `anthropic-dangerous-direct-browser-access: true` 헤더로 브라우저 CORS를 통과하므로 별도 호스트 권한이 필요 없다. 응답은 JSON 문자열 배열을 강제하고 코드펜스 제거 후 파싱
+- 권한은 `activeTab` + `scripting`뿐 — 아이콘을 누른 탭에만, 누른 순간에만 접근한다. 상시 콘텐츠 스크립트 없음
+- 생성: 데모 서버의 FastAPI 프록시(`POST /api/summary`)를 호출한다 — **Claude API 키는 서버 .env에만 존재**하고 확장·저장소에는 없다. 서버가 IP당 시간 20회 레이트리밋 후 Claude(`claude-haiku-4-5`)를 호출해 JSON 3안을 반환하며, CORS는 `chrome-extension://` 오리진을 정규식으로 허용한다. 확장 쪽에는 키·설정 UI가 아예 없다
 - 적용: `chrome.scripting.executeScript({world: "MAIN"})`으로 페이지의 Froala 인스턴스(`window.FroalaEditor.INSTANCES`)를 찾아 `instance.html.set()` + `contentChanged` 트리거 — 아임웹 우측 미리보기·저장 로직과 그대로 연동된다(요약설명 에디터 = Froala 3.1.1). 인스턴스를 못 찾으면 contenteditable DOM 조작 + `input` 이벤트로 폴백
 - 관리자 DOM은 해시된 클래스명이라 셀렉터에 의존하지 않고 **라벨 텍스트 앵커**("요약 설명" / "상품명" / "카테고리" / "판매가")로 탐색한다
-- 버전 이력: v1 인라인 패널 주입 → v2 팝업형 전환(화면 점유·권한 메뉴 문제) → v2.1 Claude AI 생성 → v2.2 서버 프록시 기본화(공개 저장소에 키를 내장할 수 없는 문제 해결 — GitHub secret scanning이 공개 키를 자동 폐기함) (git 히스토리 참고)
+- 버전 이력: v1 인라인 패널 주입 → v2 팝업형 전환(화면 점유·권한 메뉴 문제) → v2.1 Claude AI 생성 → v2.2 서버 프록시 기본화(공개 저장소에 키를 내장할 수 없는 문제 해결 — GitHub secret scanning이 공개 키를 자동 폐기함) → v2.3 설정·개인 키 모드 제거로 프록시 단일화, storage 권한 삭제 (git 히스토리 참고)
 
 ## 파일 구조
 
