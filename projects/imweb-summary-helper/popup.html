@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  body { width: 320px; margin: 0; font-family: 'Malgun Gothic', system-ui, sans-serif; font-size: 13px; color: #374151; background: #fff; }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 13px 14px 9px; }
+  .head b { font-size: 13.5px; color: #111827; white-space: nowrap; }
+  #ctx { font-size: 11px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #main { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .seg { display: flex; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; }
+  .seg button { flex: 1; border: 0; background: #fff; padding: 8px 0; font-size: 12.5px; cursor: pointer; color: #374151; font-family: inherit; }
+  .seg button + button { border-left: 1px solid #e5e7eb; }
+  .seg button.on { background: #111827; color: #fff; }
+  textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 8px; padding: 9px 10px; font-size: 13px; line-height: 1.55; resize: none; color: #111827; font-family: inherit; min-height: 88px; }
+  textarea:focus { outline: none; border-color: #9ca3af; }
+  .foot { display: flex; align-items: center; justify-content: space-between; margin-top: -4px; }
+  #plen { font-size: 11px; color: #9ca3af; }
+  #reroll { border: 0; background: transparent; color: #2563eb; font-size: 12px; cursor: pointer; padding: 2px; font-family: inherit; }
+  #apply { border: 0; background: #111827; color: #fff; border-radius: 8px; padding: 10px 0; font-size: 13.5px; cursor: pointer; font-family: inherit; width: 100%; }
+  #apply:disabled { opacity: .6; cursor: default; }
+  #apply.done { background: #059669; }
+  #empty { padding: 28px 18px; text-align: center; color: #6b7280; font-size: 12.5px; line-height: 1.7; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <b>요약설명 도우미</b>
+    <span id="ctx"></span>
+  </div>
+  <div id="main" hidden>
+    <div class="seg" id="tones"></div>
+    <textarea id="preview" spellcheck="false"></textarea>
+    <div class="foot">
+      <span id="plen"></span>
+      <button type="button" id="reroll">다른 문구</button>
+    </div>
+    <button type="button" id="apply">에디터에 적용</button>
+  </div>
+  <div id="empty" hidden>아임웹 관리자의<br>상품 수정 화면에서 열어주세요.</div>
+  <script src="popup.js"></script>
+</body>
+</html>

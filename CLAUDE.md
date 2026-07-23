@@ -70,7 +70,7 @@ ssh -i projects\enchante-pickup\deploy\lightsail-default.pem ubuntu@15.165.133.1
 
 관리자 상품 편집 화면(`/admin/shopping/product/detail`)의 요약 설명 입력을 돕는 MV3 확장. 상세는 [projects/imweb-summary-helper/README.md](projects/imweb-summary-helper/README.md).
 
-- content script는 **world: MAIN** — 페이지의 `FroalaEditor.INSTANCES`에서 인스턴스를 찾아 `html.set()` + `contentChanged` 트리거로 주입해야 아임웹 미리보기·저장과 연동된다 (요약설명 에디터 = Froala 3.1.1, `.fr-element` contenteditable)
+- **툴바 팝업형(v2)** — 상시 콘텐츠 스크립트 없음. `activeTab`+`chrome.scripting.executeScript({world:'MAIN'})`으로 아이콘 클릭 시에만 접근해 페이지의 `FroalaEditor.INSTANCES`에서 인스턴스를 찾고, `html.set()` + `contentChanged` 트리거로 주입해야 아임웹 미리보기·저장과 연동된다 (요약설명 에디터 = Froala 3.1.1, `.fr-element` contenteditable). v1(인라인 패널 주입형)은 화면 점유 + 사이트 권한 메뉴 노출 문제로 팝업형 전환
 - 관리자 DOM은 해시 클래스(`bo-shopping-product-…`)라 셀렉터 의존 금지 — **라벨 텍스트 앵커**("요약 설명"/"상품명"/"카테고리")로 탐색. 패널 삽입은 `.fr-box`의 실제 부모 기준 insertBefore (라벨의 부모 기준은 중첩 구조라 NotFoundError)
 - 관리자 화면에서 JS `location.reload()` 호출은 차단됨. 카테고리 칩 텍스트에는 zero-width space가 섞여 있어 정제 필요
 
