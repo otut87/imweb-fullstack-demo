@@ -5,6 +5,8 @@
 'use strict';
 
 const MODEL = 'claude-haiku-4-5';
+// 기본 생성 경로 — 데모 서버 프록시 (키 없이 작동, 서버가 Claude API 호출·레이트리밋)
+const PROXY_URL = 'https://15.165.133.165.sslip.io/api/summary';
 const TONES = ['정중한', '감성적', '간결한'];
 const TONE_DESC = ['정중한 — 격식 있고 신뢰감 있게', '감성적 — 감각적이고 서정적으로', '간결한 — 짧고 임팩트 있게'];
 const KINDS = ['핵심 소개', '감성 어필', '혜택 강조']; // 템플릿 폴백용
@@ -196,35 +198,55 @@ const buildPrompt = () => {
 };
 
 const generate = async () => {
-  if (!apiKey) { kindIdx = 0; templateFill(); return; }
   const btn = $('gen');
   const orig = btn.textContent;
   btn.disabled = true;
   btn.textContent = '생성 중...';
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 600,
-        system: '너는 한국 이커머스 상품의 요약설명(메타 디스크립션) 전문 카피라이터다. 반드시 JSON 문자열 배열만 출력한다.',
-        messages: [{ role: 'user', content: buildPrompt() }]
-      })
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      const msg = data && data.error && data.error.message;
-      throw new Error(msg || ('HTTP ' + res.status));
+    let arr;
+    if (apiKey) {
+      // 개인 API 키 모드 — Anthropic 직접 호출
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: 600,
+          system: '너는 한국 이커머스 상품의 요약설명(메타 디스크립션) 전문 카피라이터다. 반드시 JSON 문자열 배열만 출력한다.',
+          messages: [{ role: 'user', content: buildPrompt() }]
+        })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg = data && data.error && data.error.message;
+        throw new Error(msg || ('HTTP ' + res.status));
+      }
+      let raw = ((data.content && data.content[0] && data.content[0].text) || '').trim();
+      if (raw.startsWith('```')) raw = raw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
+      arr = JSON.parse(raw);
+    } else {
+      // 기본 모드 — 데모 서버 프록시 (키 불요)
+      const res = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: (ctx && ctx.name) || '',
+          cats: (ctx && ctx.cats) || [],
+          price: (ctx && ctx.price) || '',
+          summary: (ctx && ctx.summary) || '',
+          keywords: $('kw').value.trim(),
+          tone: TONE_DESC[toneIdx]
+        })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.detail) || ('HTTP ' + res.status));
+      arr = data && data.drafts;
     }
-    let raw = ((data.content && data.content[0] && data.content[0].text) || '').trim();
-    if (raw.startsWith('```')) raw = raw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
-    const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) throw new Error('응답 형식 오류');
     candidates = arr.filter((x) => typeof x === 'string' && x.trim()).slice(0, 5);
     if (!candidates.length) throw new Error('응답 형식 오류');
@@ -232,7 +254,9 @@ const generate = async () => {
     showCandidate();
     setHint('');
   } catch (e) {
-    setHint('생성 실패: ' + (e && e.message ? e.message : e), true);
+    kindIdx = 0;
+    templateFill();
+    setHint('AI 생성 실패(' + (e && e.message ? e.message : e) + ') — 템플릿 문구로 대체했습니다.', true);
   } finally {
     btn.disabled = false;
     btn.textContent = orig;
@@ -241,15 +265,11 @@ const generate = async () => {
 
 // ---------- 설정 (API 키) ----------
 const updateMode = () => {
-  if (apiKey) {
-    $('gen').hidden = false;
-    if (!candidates.length && !$('preview').value) {
-      setHint('[AI 초안 생성]을 누르면 상품 정보와 키워드로 맞춤 문구를 만듭니다.');
-    }
-  } else {
-    $('gen').hidden = true;
-    templateFill();
-    setHint('템플릿 모드 — 우측 상단 [설정]에서 Claude API 키를 등록하면 AI가 상품 맞춤 문구를 생성합니다.');
+  $('gen').hidden = false;
+  if (!candidates.length && !$('preview').value) {
+    setHint(apiKey
+      ? '개인 API 키 모드 — [AI 초안 생성]을 눌러 상품 맞춤 문구를 만드세요.'
+      : '[AI 초안 생성]을 누르면 상품 정보와 키워드로 맞춤 문구를 만듭니다. 키 설정 없이 바로 사용 가능합니다.');
   }
 };
 
@@ -268,15 +288,14 @@ const init = async () => {
       toneIdx = i;
       try { localStorage.setItem('tone', String(i)); } catch (e) { /* 무시 */ }
       renderTones();
-      if (apiKey) {
-        if (candidates.length) setHint('톤이 바뀌었습니다 — [AI 초안 생성]을 다시 눌러주세요.');
-      } else { kindIdx = 0; templateFill(); }
+      if (candidates.length) setHint('톤이 바뀌었습니다 — [AI 초안 생성]을 다시 눌러주세요.');
+      else if ($('preview').value) { kindIdx = 0; templateFill(); }
     });
     $('tones').appendChild(b);
   }
   $('gen').addEventListener('click', generate);
   $('reroll').addEventListener('click', () => {
-    if (apiKey && candidates.length) { candIdx = (candIdx + 1) % candidates.length; showCandidate(); }
+    if (candidates.length) { candIdx = (candIdx + 1) % candidates.length; showCandidate(); }
     else { kindIdx = (kindIdx + 1) % KINDS.length; templateFill(); }
   });
   $('preview').addEventListener('input', updateLen);

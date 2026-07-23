@@ -13,7 +13,7 @@ from fastapi.responses import RedirectResponse
 from .config import get_settings
 from .db import init_db
 from .poller import poll_orders_forever
-from .routers import auth, erp, public, webhooks
+from .routers import ai, auth, erp, public, webhooks
 
 
 @asynccontextmanager
@@ -31,13 +31,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Enchanté Pickup ERP", lifespan=lifespan)
-# 상세페이지(쇼핑몰 오리진)에서 공개 재고 API 호출 허용
+# 상세페이지(쇼핑몰 오리진)의 공개 재고 API + 크롬 확장(요약설명 도우미)의 AI 프록시 호출 허용
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://support51251.imweb.me"],
-    allow_methods=["GET"],
+    allow_origin_regex=r"chrome-extension://.*",
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+app.include_router(ai.router)
 app.include_router(auth.router)
 app.include_router(webhooks.router)
 app.include_router(erp.router)

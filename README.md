@@ -59,7 +59,7 @@ flowchart LR
 | 백엔드 서버 구축 (AWS·FastAPI) | FastAPI + SQLite + SSE, Docker/Caddy(자동 TLS), AWS Lightsail 상시 운영 | [`deploy/DEPLOY.md`](projects/enchante-pickup/deploy/DEPLOY.md) |
 | 외부 API 연동 | **카카오톡 주문 알림** — 신규 픽업 주문을 지점 담당자 카톡으로 실시간 발송 (실서비스는 알림톡 확장) | [`app/kakao.py`](projects/enchante-pickup/app/kakao.py) |
 | 프론트 커스터마이징 | 기존 옵션 UI를 숨기고 캘린더·시간·지점 버튼 UX로 재구성 — 아임웹 원본 핸들러 위임으로 장바구니·결제 무손상, 지점별 실시간 재고 표시·품절 비활성 | [`sitecode/pickup-options.html`](projects/enchante-pickup/sitecode/pickup-options.html) |
-| 크롬 익스텐션 (우대사항) | 툴바 팝업형 '요약설명 도우미' — 상품 정보(상품명·카테고리·가격·기존 요약)와 특징 키워드로 **Claude API(Haiku)가 맞춤 요약 3안 생성** → Froala 에디터에 즉시 적용 (activeTab + chrome.scripting, 키 없으면 템플릿 폴백) | [`projects/imweb-summary-helper/`](projects/imweb-summary-helper/) |
+| 크롬 익스텐션 (우대사항) | 툴바 팝업형 '요약설명 도우미' — 상품 정보(상품명·카테고리·가격·기존 요약)와 특징 키워드로 **Claude API(Haiku)가 맞춤 요약 3안 생성** → Froala 에디터에 즉시 적용. 키 배포 없이 자체 FastAPI 프록시(`/api/summary`, IP 레이트리밋) 경유라 설치만 하면 동작 | [`projects/imweb-summary-helper/`](projects/imweb-summary-helper/) |
 
 ## 픽업 운영 플로우 (전 구간 실검증)
 

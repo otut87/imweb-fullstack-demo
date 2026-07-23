@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     kakao_rest_api_key: str = ""
     kakao_redirect_uri: str = ""
 
+    # 크롬 확장 '요약설명 도우미' AI 프록시용 — 키는 서버 .env에만 존재(확장/저장소에 미포함)
+    anthropic_api_key: str = ""
+
     # 웹훅 수신 검증용 공유 시크릿 (URL 쿼리)
     webhook_shared_secret: str = "change-me"
     # 아임웹이 이벤트와 함께 전달하는 인증정보 (개발자센터 웹훅 화면의 값)
