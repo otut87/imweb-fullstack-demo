@@ -1,6 +1,14 @@
 # Enchanté 매장 픽업 시스템 — 아임웹 풀스택 데모
 
-> **DESIGN ONX × DEDO** — 디자인 [디자인온엑스](https://design-onx.imweb.me/) · 백엔드/연동 개발 **디두(DEDO)**
+<p>
+  <img src="assets/dedo.jpg" alt="DEDO" height="44">
+  &nbsp;&nbsp;<b>×</b>&nbsp;&nbsp;
+  <img src="assets/design-onx.png" alt="DESIGN ONX" height="44">
+</p>
+
+> 이 데모는 기획·디자인·개발 **전 과정을 디두(DEDO)가 단독 제작**했습니다.
+> 실제 프로젝트는 오랜 협업 파트너 [디자인온엑스](https://design-onx.imweb.me/)와 팀으로 수행합니다
+> (디자인온엑스 — 디자인·고객 커뮤니케이션 전담 / 디두 — 기획·백엔드·연동 개발).
 >
 > 아임웹 쇼핑몰 위에 **매장 픽업 예약 커머스**를 엔드투엔드로 구현한 데모입니다.
 > 프론트 커스터마이징(옵션 UX 재구성) → Open API/Webhook 백엔드 → 지점 운영 ERP → 외부 API(카카오 알림)까지,
@@ -85,4 +93,4 @@ flowchart LR
 
 ---
 
-<sub>이 저장소는 아임웹 풀스택 전문가 지원용 데모입니다. 문의: DEDO (support@dedo.kr)</sub>
+<sub>이 저장소는 아임웹 풀스택 전문가 지원용 데모입니다. 제작·문의: DEDO (support@dedo.kr) · 협업 파트너: 디자인온엑스</sub>
