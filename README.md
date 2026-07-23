@@ -82,13 +82,21 @@ flowchart LR
 - **상태 랭크 가드** — 폴링이 운영자의 수동 진행 상태를 되돌리지 않도록 단방향 랭크 병합
 - 전 과정의 확정 지식은 [docs/imweb-integration-notes.md](docs/imweb-integration-notes.md)에 문서화 (138개 엔드포인트 인덱스 포함)
 
-## 주요 구축 경험 (비공개 프로젝트 — 미팅 시 시연 가능)
+## 주요 구축 경험
+
+**운영 중인 서비스**
+
+- **베스트잡** — 인력 아웃소싱 기업(제조 도급·물류·인재파견) 사이트. 채용공고 등록·조회와 상담 문의, 프론트·백엔드 구축 — https://bestjob.kr
+- **삼성화재 애니드림** — 설계사 모집(도입) 광고 랜딩페이지 + 개인별 인강 페이지. 프론트·백엔드 구축 — https://samsungfire-anydream.com ([/study](https://samsungfire-anydream.com/study))
+
+**비공개 프로젝트 (미팅 시 시연 가능)**
 
 - **거들짝 CRM v3** — 결혼정보회사 매칭 CRM. Next.js·Hono·Prisma·PostgreSQL 모노레포, 멀티테넌시 구조로 개발·운영
 - **ks-dms** — 제조사(경성금형) 업무 자동화·ERP 연동 시스템 (Next.js)
 - **coupang_auto** — 쿠팡 위탁판매 자동화. 스케줄 기반 자동 발주·송장 등록 봇(쿠팡 API), 주문·반품·정산·광고 관리, 멀티 스토어
 - **ai-place** — LLM 검색 노출 최적화(AEO·GEO·SEO) SaaS
-- **samsungai** — LLM 기반 AI 비서 서비스
+- **samsungai** — 삼성화재 약관을 학습시킨 LLM 보험 비서 챗봇. 보상·가입설계 실무 지원
+- **약관분석** — 보험 약관 PDF 자동 파싱 → 담보 검색 → LLM 질의 로컬 프로그램. 보상·가입설계 실무에서 상시 사용 중
 
 ## 저장소 구조
 
