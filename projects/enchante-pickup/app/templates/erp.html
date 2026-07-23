@@ -188,13 +188,16 @@
 // 픽업 운영 상태 (배송없음 기준 5종) — 픽업완료는 아임웹 배송완료로 역방향 동기화
 const STATUSES = ["결제대기", "픽업대기", "픽업완료", "취소", "반품"];
 
-// 데모 소개 배너 링크 — 저장소/구축기 공개 후 URL 채우면 버튼 노출
-const DEMO_LINKS = { github: "", notion: "" };
+// 데모 소개 배너 링크 — 구축기(노션) 공개 후 URL 채우면 버튼 노출
+const DEMO_LINKS = {
+  github: "https://github.com/otut87/imweb-fullstack-demo",
+  notion: "",
+};
 (function demoBanner() {
   const el = document.createElement("div");
   el.id = "demo-banner";
-  el.innerHTML = `<span>🛠️ 이 ERP는 <b>아임웹 풀스택 개발 샘플</b>입니다 —
-    주문 웹훅·Open API·양방향 상태 동기화·카카오 알림 시연</span>`;
+  el.innerHTML = `<span>🛠️ <b>DESIGN ONX × DEDO</b> · 아임웹 풀스택 개발 샘플 —
+    주문 웹훅·Open API·양방향 동기화·카카오 알림 시연</span>`;
   const links = document.createElement("span");
   links.className = "db-links";
   if (DEMO_LINKS.github)
