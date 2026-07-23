@@ -40,8 +40,8 @@
 
 ## 파일 구조
 
-- `manifest.json` — MV3 선언 (action popup, activeTab + scripting + storage)
-- `popup.html` / `popup.js` — 팝업 UI + 프롬프트 + Claude API 호출 + 페이지 주입 함수
+- `manifest.json` — MV3 선언 (action popup, activeTab + scripting)
+- `popup.html` / `popup.js` — 팝업 UI + 상품 정보 수집·주입 함수 + 서버 프록시(`/api/summary`) 호출 (프롬프트·Claude 호출은 서버 `app/routers/ai.py`에 있음)
 - `icons/` — 툴바 아이콘
 
 ## 제약

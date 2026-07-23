@@ -1,6 +1,7 @@
 """OAuth 인가 라우트 — 최초 1회 브라우저로 /auth/login 접속해 토큰 발급."""
 import secrets
 
+import httpx
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlmodel import Session
@@ -13,6 +14,20 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 # 데모 규모 전제의 단일 프로세스 state 보관 (다중 인스턴스면 DB/캐시로 이동)
 _pending_states: set[str] = set()
+
+
+def _http_error_message(exc: httpx.HTTPStatusError) -> str:
+    """토큰 엔드포인트 4xx 응답에서 사람이 읽을 메시지 추출."""
+    try:
+        body = exc.response.json()
+    except Exception:  # noqa: BLE001
+        return f"HTTP {exc.response.status_code}"
+    return (
+        body.get("message")
+        or body.get("error_description")
+        or (body.get("error", {}) or {}).get("message")
+        or f"HTTP {exc.response.status_code}"
+    )
 
 
 @router.get("/login")
@@ -43,7 +58,20 @@ def kakao_callback(
                 "error_description": request.query_params.get("error_description", ""),
             },
         )
-    row = kakao.save_tokens(session, kakao.exchange_code(code))
+    try:
+        row = kakao.save_tokens(session, kakao.exchange_code(code))
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "kakao_token_exchange_failed",
+                     "message": _http_error_message(exc),
+                     "hint": "만료·재사용된 인가 코드일 수 있습니다 — /auth/kakao/login 재시도"},
+        )
+    except Exception as exc:  # noqa: BLE001 — 응답 파싱 실패 등
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "kakao_token_error", "message": str(exc)},
+        )
     return {
         "ok": True,
         "provider": "kakao",
@@ -80,7 +108,20 @@ def callback(
     # 데모 운영 편의상 불일치여도 진행 (코드 교환은 client secret으로 보호됨).
     _pending_states.discard(state)
 
-    row = save_tokens(session, exchange_code(code))
+    try:
+        row = save_tokens(session, exchange_code(code))
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "token_exchange_failed",
+                     "message": _http_error_message(exc),
+                     "hint": "만료·재사용된 인가 코드일 수 있습니다 — /auth/login 재시도"},
+        )
+    except Exception as exc:  # noqa: BLE001 — 토큰 응답 파싱 실패 등
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "token_error", "message": str(exc)},
+        )
     return {
         "ok": True,
         "site_code": row.site_code,

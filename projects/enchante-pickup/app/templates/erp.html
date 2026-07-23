@@ -217,6 +217,9 @@ const DEMO_LINKS = {
 let stores = [], orders = [], filterStatus = "";
 
 const fmtWon = n => (n || 0).toLocaleString() + "원";
+// 주문자명·상품명 등은 외부(구매자)가 통제하는 값 — innerHTML 보간 전 항상 이스케이프
+const esc = v => String(v ?? "").replace(/[&<>"']/g,
+  c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 async function json(url, options) { const r = await fetch(url, options); return r.json(); }
 
 /* "2026-07-26 14:00" → {time, date, ts} */
@@ -267,17 +270,19 @@ function orderCard(o, flash) {
   const p = parsePickup(o.pickup_date);
   const el = document.createElement("div");
   el.className = "order" + (flash ? " flash" : "");
+  // status는 서버가 Literal로 검증(고정 5종)하므로 클래스명에 안전, 나머지 외부 값은 이스케이프
+  const badgeCls = STATUSES.includes(o.status) ? o.status : "";
   el.innerHTML = `
     <div class="o-top">
-      <span class="o-time">${p.time}</span><span class="o-date">${p.date}</span>
-      <span class="o-badge"><span class="badge ${o.status}">${o.status}</span></span>
+      <span class="o-time">${esc(p.time)}</span><span class="o-date">${esc(p.date)}</span>
+      <span class="o-badge"><span class="badge ${badgeCls}">${esc(o.status)}</span></span>
     </div>
-    <div class="o-items">${o.items_summary || "상품 정보 없음"}</div>
-    <div class="o-meta">${o.customer_name || "고객"}${o.member_grade
-      ? ` <span class="grade-chip">${o.member_grade}</span>` : ""}</div>`;
+    <div class="o-items">${esc(o.items_summary) || "상품 정보 없음"}</div>
+    <div class="o-meta">${esc(o.customer_name) || "고객"}${o.member_grade
+      ? ` <span class="grade-chip">${esc(o.member_grade)}</span>` : ""}</div>`;
   const foot = document.createElement("div");
   foot.className = "o-foot";
-  foot.innerHTML = `<span class="o-amount">${fmtWon(o.amount)}</span>`;
+  foot.innerHTML = `<span class="o-amount">${esc(fmtWon(o.amount))}</span>`;
   const sel = document.createElement("select");
   sel.className = "status-sel";
   STATUSES.forEach(s => sel.add(new Option(s, s, false, s === o.status)));
@@ -287,9 +292,9 @@ function orderCard(o, flash) {
       body: JSON.stringify({ status: sel.value }),
     });
     const pushable = ["픽업완료"].includes(sel.value);
-    logLine(`${o.order_no} → ${sel.value}` +
+    logLine(`${esc(o.order_no)} → ${esc(sel.value)}` +
       (res.imweb_synced ? " · 아임웹 반영 ✓"
-        : (pushable ? ` · 아임웹 미반영${res.imweb_error ? ": " + res.imweb_error : ""}` : "")));
+        : (pushable ? ` · 아임웹 미반영${res.imweb_error ? ": " + esc(res.imweb_error) : ""}` : "")));
     if (pushable && !res.imweb_synced && res.imweb_error) alert("아임웹 반영 실패: " + res.imweb_error);
     await loadOrders();
   };
@@ -303,21 +308,28 @@ function orderCard(o, flash) {
     pay.textContent = "입금 확인 처리";
     pay.onclick = async () => {
       pay.disabled = true; pay.textContent = "처리 중…";
-      const r = await fetch(`/erp/api/orders/${o.id}/confirm-payment`, { method: "POST" });
-      const d = await r.json().catch(() => ({}));
-      if (r.ok) {
-        logLine(`${o.order_no} 입금 확인 완료 · 아임웹 반영 ✓ → ${d.status}`);
-      } else {
-        logLine(`${o.order_no} 입금 확인 실패: ${d.detail || r.status}`);
-        alert(d.detail || "입금 확인 처리에 실패했습니다");
+      try {
+        const r = await fetch(`/erp/api/orders/${o.id}/confirm-payment`, { method: "POST" });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok) {
+          logLine(`${esc(o.order_no)} 입금 확인 완료 · 아임웹 반영 ✓ → ${esc(d.status)}`);
+        } else {
+          logLine(`${esc(o.order_no)} 입금 확인 실패: ${esc(d.detail || r.status)}`);
+          alert(d.detail || "입금 확인 처리에 실패했습니다");
+        }
+      } catch (err) {
+        // fetch 자체 실패(네트워크 오류) — 버튼이 '처리 중…'으로 고착되지 않게 표면화
+        logLine(`${esc(o.order_no)} 입금 확인 요청 실패: 네트워크 오류`);
+        alert("입금 확인 요청을 보내지 못했습니다 (네트워크 오류)");
+      } finally {
         pay.disabled = false; pay.textContent = "입금 확인 처리";
+        await loadOrders();  // 성공 시 카드가 갱신되며 버튼은 사라짐
       }
-      await loadOrders();
     };
     el.appendChild(pay);
   }
 
-  el.insertAdjacentHTML("beforeend", `<div class="o-no">No.${o.order_no}</div>`);
+  el.insertAdjacentHTML("beforeend", `<div class="o-no">No.${esc(o.order_no)}</div>`);
   return el;
 }
 
@@ -349,7 +361,7 @@ async function renderInventory() {
   tbody.innerHTML = "";
   for (const it of rows) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${it.store_name}</td><td>${it.product_name}</td>
+    tr.innerHTML = `<td>${esc(it.store_name)}</td><td>${esc(it.product_name)}</td>
       <td style="text-align:center"><span class="qty-pill ${it.qty <= 3 ? "low" : ""}">${it.qty}</span></td>`;
     const td = document.createElement("td");
     const adj = document.createElement("div");
@@ -357,10 +369,19 @@ async function renderInventory() {
     for (const d of [-1, 1]) {
       const b = document.createElement("button");
       b.textContent = d > 0 ? "+" : "−";
-      b.onclick = () => json(`/erp/api/inventory/${it.id}/adjust`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ delta: d }),
-      });
+      b.onclick = async () => {
+        b.disabled = true;
+        try {
+          await json(`/erp/api/inventory/${it.id}/adjust`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ delta: d }),
+          });
+          await renderInventory();  // SSE 단절 중에도 즉시 반영
+        } catch (err) {
+          b.disabled = false;
+          alert("재고 조정에 실패했습니다 (네트워크 오류)");
+        }
+      };
       adj.appendChild(b);
     }
     td.appendChild(adj);
@@ -401,11 +422,17 @@ async function main() {
 
   const es = new EventSource("/erp/api/stream");
   const conn = document.getElementById("conn");
-  es.onopen = () => { conn.textContent = "실시간 연결됨"; conn.classList.add("live"); };
+  let everConnected = false;
+  es.onopen = () => {
+    conn.textContent = "실시간 연결됨"; conn.classList.add("live");
+    // 재연결 시 끊긴 동안의 주문·상태·재고 변경을 전체 재동기화(첫 연결은 main이 이미 로드)
+    if (everConnected) { loadOrders(); renderInventory(); }
+    everConnected = true;
+  };
   es.onerror = () => { conn.textContent = "재연결 중"; conn.classList.remove("live"); };
   es.addEventListener("order", async e => {
     const d = JSON.parse(e.data);
-    logLine(`주문 ${d.order_no} (${d.store}) — ${d.status}`);
+    logLine(`주문 ${esc(d.order_no)} (${esc(d.store)}) — ${esc(d.status)}`);
     if (d.is_new) notify(`${d.store} 신규 픽업 주문`, `${d.items} · ${d.pickup_date || ""}`);
     await loadOrders(d.order_no);
     await renderInventory();

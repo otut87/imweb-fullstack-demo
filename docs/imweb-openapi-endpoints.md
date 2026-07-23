@@ -1,7 +1,8 @@
 # 아임웹 OpenAPI 엔드포인트 인덱스
 
 > 원본: developers-docs.imweb.me/reference 의 OpenAPI 3.1.0 스펙 번들
-> (`imweb-openapi-chunk.js` — 전체 파라미터/스키마는 이 파일에서 검색)
+> (전체 파라미터/스키마는 커밋본 `imweb-openapi-reference.md`에서 검색 —
+>  원본 번들 `imweb-openapi-chunk.js`는 용량 문제로 비커밋)
 > Base URL: `https://openapi.imweb.me` / 인증: `Authorization: Bearer {accessToken}`
 
 | Method | Path | Summary |

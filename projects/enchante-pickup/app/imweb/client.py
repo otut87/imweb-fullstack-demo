@@ -7,16 +7,15 @@
 - GET /products?page&limit&unitCode → 동일 페이지네이션 봉투
 - 응답 봉투: {"statusCode":200,"data":{...}} / 오류: {"statusCode":4xx,"error":{errorCode,message,data}}
 - limit 범위 1~100, 필드 네이밍 camelCase
+- GET /orders/{orderNo}                → 주문 단건 (실검증 200 확인)
 
 주문 데이터 구조 (문서: 주문 이해하기): Order > OrderSection > OrderSectionItem
-TODO(확인): 주문 단건 조회 경로(/orders/{orderNo} 추정) — 실주문 생기면 검증
 """
 import httpx
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from ..config import get_settings
-from ..models import OAuthToken
-from .oauth import get_valid_access_token, refresh_token, save_tokens
+from .oauth import force_refresh_access_token, get_valid_access_token
 
 
 class ImwebClient:
@@ -33,14 +32,11 @@ class ImwebClient:
         with httpx.Client(timeout=15) as client:
             response = client.request(method, url, headers=self._headers(), **kwargs)
             if response.status_code == 401:
-                row = self._db.exec(
-                    select(OAuthToken).where(
-                        OAuthToken.site_code == self._settings.imweb_site_code
-                    )
-                ).first()
-                if row:
-                    save_tokens(self._db, refresh_token(row.refresh_token))
-                response = client.request(method, url, headers=self._headers(), **kwargs)
+                # 락+재조회로 강제 갱신 — 다른 스레드가 회전시킨 최신 refresh token 사용
+                token = force_refresh_access_token(self._db)
+                response = client.request(
+                    method, url, headers={"Authorization": f"Bearer {token}"}, **kwargs
+                )
             response.raise_for_status()
             body = response.json()
             return body.get("data", body)

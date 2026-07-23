@@ -16,7 +16,11 @@ class Settings(BaseSettings):
     imweb_site_code: str = ""
     imweb_unit_code: str = ""  # /site-info의 unitList[].unitCode — 주문/상품 조회 필수
     imweb_redirect_uri: str = "http://localhost:8000/auth/callback"
-    imweb_scope: str = "order:read product:read member:read"
+    # 실검증 확정 scope (site-info:write=인가 필수, order:write=상태 푸시, payment:write=입금확인,
+    # member-info:read=회원 등급). 형식은 카테고리:read|write.
+    imweb_scope: str = (
+        "site-info:write order:read order:write product:read payment:write member-info:read"
+    )
 
     # 아임웹 Open API 엔드포인트 (developers-docs.imweb.me 기준)
     imweb_oauth_base: str = "https://openapi.imweb.me"
@@ -37,8 +41,8 @@ class Settings(BaseSettings):
 
     # 웹훅 수신 검증용 공유 시크릿 (URL 쿼리)
     webhook_shared_secret: str = "change-me"
-    # 아임웹이 이벤트와 함께 전달하는 인증정보 (개발자센터 웹훅 화면의 값)
-    # TODO: 첫 수신 페이로드에서 전달 위치(헤더/바디) 확인 후 검증 로직 연결
+    # 아임웹이 이벤트와 함께 전달하는 인증정보 (개발자센터 웹훅 화면의 값).
+    # 실측: authorization 헤더로 전달됨 → webhooks.py에서 검증.
     imweb_webhook_auth: str = ""
 
     db_path: str = "enchante_erp.db"

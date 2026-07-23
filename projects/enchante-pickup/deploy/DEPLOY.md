@@ -24,17 +24,21 @@ curl -fsSL <이 저장소 raw URL>/deploy/setup-server.sh | bash
 # 또는 파일 복사 후: bash setup-server.sh
 ```
 
-재접속 후(도커 그룹 반영):
+재접속 후(도커 그룹 반영). compose·.env.example은 모노레포의
+`projects/enchante-pickup/` 하위에 있으므로 그 경로로 이동한다:
 
 ```bash
-git clone <저장소URL> enchante-erp && cd enchante-erp   # 또는 scp로 업로드
+git clone <저장소URL> enchante-erp && cd enchante-erp/projects/enchante-pickup
 cp .env.example .env && nano .env
-# IMWEB_CLIENT_ID / SECRET / SITE_CODE / SCOPE 입력
+# IMWEB_CLIENT_ID / SECRET / SITE_CODE / UNIT_CODE / SCOPE 입력
 # IMWEB_REDIRECT_URI=https://<도메인>/auth/callback  ← https, 실제 도메인으로!
 # WEBHOOK_SHARED_SECRET=<임의의 긴 문자열>
 # DOMAIN=<도메인>
 docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+> 로컬(Windows)에서 개발 중이라면 git clone 대신 tar 업로드로 배포한다 —
+> 정확한 명령은 워크스페이스 루트 `CLAUDE.md`의 배포 절차를 따른다.
 
 확인: `https://<도메인>/healthz` → `{"ok":true}`
 
@@ -51,8 +55,12 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ```bash
 cd enchante-erp && git pull
+cd projects/enchante-pickup
 docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+> 실제 이 데모는 로컬 tar 패키징 → scp → 원격 재빌드로 배포한다(서버는 홈에 플랫 배치).
+> 재현 가능한 정확한 명령은 워크스페이스 루트 `CLAUDE.md` 참고.
 
 ## 트러블슈팅
 

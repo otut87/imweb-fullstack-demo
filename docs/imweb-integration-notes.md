@@ -3,7 +3,8 @@
 > 2026-07-23, Enchanté 픽업 ERP 데모(projects/enchante-pickup) 구축 과정에서
 > **실호출·실이벤트로 검증**한 내용만 기록. 추정은 (추정)으로 표기.
 > 엔드포인트 상세 스펙은 [imweb-openapi-endpoints.md](imweb-openapi-endpoints.md)(인덱스)와
-> [imweb-openapi-chunk.js](imweb-openapi-chunk.js)(풀스펙·스키마·에러코드)에서 검색.
+> [imweb-openapi-reference.md](imweb-openapi-reference.md)(레퍼런스·스키마·에러코드)에서 검색.
+> (원본 풀스펙 번들 `imweb-openapi-chunk.js`는 용량 문제로 비커밋 — 로컬에만 존재)
 
 ## 1. 연동 준비 (개발자센터)
 
@@ -127,12 +128,15 @@
 
 - FastAPI + SQLite + SSE 단일 컨테이너, Caddy 리버스 프록시(80/443, Let's Encrypt 자동).
 - 도메인 없이 `<고정IP>.sslip.io`로 TLS 발급 성공 (Lightsail).
-- 웹훅+폴링 이중화, ERP→아임웹 역푸시(shipping-operation), 쇼핑몰 페이지용 공개 API는
-  CORS를 해당 사이트 오리진에만 GET 허용.
+- 웹훅+폴링 이중화, ERP→아임웹 역푸시(shipping-operation).
+- CORS(main.py 단일 미들웨어): 허용 오리진 = 쇼핑몰 오리진(support51251.imweb.me) + 크롬 확장
+  (`chrome-extension://` 정규식), 허용 메서드 GET·POST 공통. 공개 재고 API는 GET,
+  확장 AI 프록시(`/api/summary`)는 POST. (Starlette CORSMiddleware는 오리진별 메서드 구분 불가)
 
 ## 8. 기타
 
 - 개발자 문서: https://developers-docs.imweb.me (가이드), Reference는 Scalar SPA —
-  풀스펙은 assets의 openapiMap이 가리키는 청크 JS에 번들됨 (docs/imweb-openapi-chunk.js로 보관).
+  풀스펙은 assets의 openapiMap이 가리키는 청크 JS에 번들됨. 커밋본은 `docs/imweb-openapi-reference.md`
+  (원본 `imweb-openapi-chunk.js`는 용량 문제로 비커밋, 로컬 보관).
 - 샘플사이트(전문가 등록 계정)는 플랜 제약 없이 전 기능 사용 가능.
 - 웹훅/OAuth 콜백 URL 변경 시 개발자센터 등록값도 같이 갱신할 것.

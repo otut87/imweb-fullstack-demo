@@ -6,6 +6,7 @@
 파서는 키 이름에 유연한 deep-scan 방식으로 구현. 실수신 후 정확한 스펙으로 조여갈 것.
 (개발자센터 '테스트 보내기'로 샘플 페이로드를 먼저 받아볼 수 있음)
 """
+import asyncio
 import json
 from datetime import datetime
 from typing import Any
@@ -79,8 +80,18 @@ def _first_int(payload: Any, keys: tuple[str, ...]) -> int:
     return 0
 
 
-# ERP 상태 진행 순서 — 폴링/웹훅이 수동 진행 상태를 되돌리지 않게 하는 랭크
-STATUS_RANK = {"결제대기": 0, "픽업대기": 1, "픽업완료": 2}
+def _to_qty(value: Any) -> int:
+    """수량 안전 변환 — 문자열/None/음수 등 이상값도 최소 1로 흡수."""
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return 1
+
+
+# ERP 상태 진행 순서 — 폴링/웹훅이 수동 진행 상태를 되돌리지 않게 하는 랭크.
+# 취소/반품은 종결 상태(랭크 3)로 둬, ERP에서 수동 취소한 주문을 이후 폴링이 진행 상태로
+# 되돌리지 못하게 한다. (취소/반품 이벤트 수신 시엔 아래 무조건 반영 분기로 진입)
+STATUS_RANK = {"결제대기": 0, "픽업대기": 1, "픽업완료": 2, "취소": 3, "반품": 3}
 
 
 def _map_status(event_type: str, payload: Any) -> str:
@@ -148,7 +159,8 @@ async def receive_imweb_webhook(
 
     event_type = _first_str(payload, ("event", "eventType", "event_type", "topic", "type"))
 
-    # 1) 원본 전량 보존 (스펙 확인/재처리용) — 헤더 포함(아임웹 인증정보 위치 확인)
+    # 1) 원본 전량 보존 (스펙 확인/재처리용) — 헤더 포함(아임웹 인증정보 위치 확인).
+    #    파서가 미지 스펙에 죽어도 원본은 남아야 하므로 먼저 커밋해 확정한다.
     headers = dict(request.headers.items())
     session.add(
         WebhookEvent(
@@ -157,9 +169,15 @@ async def receive_imweb_webhook(
             headers_json=json.dumps(headers, ensure_ascii=False),
         )
     )
+    session.commit()
 
-    # 2) 주문 파싱·upsert·재고 (웹훅/폴링 공용 파이프라인)
-    row, is_new, _changed = ingest_order_payload(session, payload, event_type)
+    # 2) 주문 파싱·upsert·재고 (웹훅/폴링 공용 파이프라인).
+    #    파싱 실패 시에도 200(logged-only)을 반환해 아임웹 재전송→동일 크래시 루프를 끊는다.
+    try:
+        row, is_new, _changed = ingest_order_payload(session, payload, event_type)
+    except Exception:  # noqa: BLE001 — 원본 로그는 이미 보존됨, 재처리는 로그 기반
+        session.rollback()
+        return {"ok": True, "handled": "logged-only"}
     if row is None:
         session.commit()
         return {"ok": True, "handled": "logged-only"}
@@ -171,7 +189,8 @@ async def receive_imweb_webhook(
     if is_new:
         from ..kakao import send_order_alert
 
-        send_order_alert(session, message)  # 운영자 카톡 알림 (실패해도 무해)
+        # 카카오는 동기 httpx 호출 — 이벤트 루프를 막지 않도록 워커 스레드로 내린다
+        await asyncio.to_thread(send_order_alert, session, message)  # 실패해도 무해
     return {"ok": True, "order_no": row.order_no, "store": row.store_name}
 
 
@@ -240,11 +259,11 @@ def ingest_order_payload(
             product_info = node.get("productInfo")
             if isinstance(product_info, dict) and product_info.get("prodName"):
                 name = str(product_info["prodName"])
-                qty = int(node.get("qty") or 1)
+                qty = _to_qty(node.get("qty"))
             elif node.get("prodName") and ("qty" in node or "count" in node):
                 # 폴백(구형 평면 구조) — productInfo 하위 노드 이중 차감 방지 위해 qty 보유 노드만
                 name = str(node["prodName"])
-                qty = int(node.get("qty") or node.get("count") or 1)
+                qty = _to_qty(node.get("qty") or node.get("count"))
             else:
                 continue
             inv = session.exec(

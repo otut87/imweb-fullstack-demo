@@ -179,6 +179,7 @@ const templateFill = () => {
 
 const generate = async () => {
   const btn = $('gen');
+  if (btn.disabled) return;  // 생성 중 재진입 방지(Enter 연타·중복 요청 차단)
   const orig = btn.textContent;
   btn.disabled = true;
   btn.textContent = '생성 중...';
@@ -234,7 +235,9 @@ const init = async () => {
     else { kindIdx = (kindIdx + 1) % KINDS.length; templateFill(); }
   });
   $('preview').addEventListener('input', updateLen);
-  $('kw').addEventListener('keydown', (e) => { if (e.key === 'Enter') generate(); });
+  $('kw').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) generate();  // IME 조합 확정 Enter 무시
+  });
   $('apply').addEventListener('click', async () => {
     const text = $('preview').value.trim();
     if (!text) return;

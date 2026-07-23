@@ -5,6 +5,13 @@ eventType / data.section.sectionItems[].productInfo.optionInfo(평면 dict) / au
 """
 import json
 import os
+import sys
+
+# 한국어 Windows 콘솔(cp949)에서 결과 출력이 UnicodeEncodeError로 죽지 않게 UTF-8 강제
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except (AttributeError, ValueError):
+    pass
 
 os.environ["DB_PATH"] = "smoke_test.db"
 os.environ["IMWEB_WEBHOOK_AUTH"] = "test-auth"  # .env 값 대신 테스트용 (env가 .env보다 우선)
@@ -139,6 +146,20 @@ with TestClient(app) as client:
     r = client.get("/erp/api/orders")
     first = [o for o in r.json() if o["order_no"] == "20260723000001"][0]
     checks.append(("취소 이벤트 → 취소", first["status"] == "취소"))
+
+    # 취소 후 진행 이벤트(입금완료 폴링)가 와도 취소 유지 (종결 랭크 가드)
+    revert = json.loads(json.dumps(REAL_SPEC_WEBHOOK))
+    revert["eventType"] = "API_POLL"
+    revert["data"]["section"]["orderSectionStatus"] = "PRODUCT_PREPARATION"
+    revert["data"]["payments"] = [{"paymentStatus": "PAYMENT_COMPLETE"}]
+    client.post("/webhooks/imweb?secret=change-me", content=json.dumps(revert), headers=AUTH)
+    r = client.get("/erp/api/orders")
+    first = [o for o in r.json() if o["order_no"] == "20260723000001"][0]
+    checks.append(("취소 가드 — 폴링이 취소를 되돌리지 않음", first["status"] == "취소"))
+
+    # 미허용 상태 문자열은 422로 거부 (Literal 화이트리스트)
+    r = client.post(f"/erp/api/orders/{order_id}/status", json={"status": "<script>"})
+    checks.append(("미허용 상태 422 거부", r.status_code == 422))
 
     # 결제·배송 단계 매핑 (아임웹 탭 1:1) — 주문3으로 단계별 검증
     def send(event_type, section_status, order_no=20260723000003, extra=None):

@@ -112,11 +112,36 @@ body:not(.pk-noenhance) #prod_selected_options { display: none !important; }
     }
   }
 
+  // 오늘 선택 시 이미 지난 시간 슬롯을 비활성화 (헤더 '과거 불가' 설계와 일치)
+  function applyTimeConstraints() {
+    if (!timeWrap) return;
+    var isToday = state.date === todayIso();
+    var nowHM = "";
+    if (isToday) { var d = new Date(); nowHM = pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+    var btns = timeWrap.querySelectorAll(".pk-btn");
+    for (var i = 0; i < btns.length; i++) {
+      var slot = norm(btns[i].textContent);
+      var past = isToday && slot <= nowHM;
+      btns[i].disabled = past;
+      if (past && btns[i].classList.contains("pk-on")) {
+        btns[i].classList.remove("pk-on");
+        state.time = ""; // 지난 슬롯이 선택돼 있었으면 해제
+      }
+    }
+  }
+
   // 날짜(+시간)와 지점이 모두 준비되면 원본에 등록
   function register() {
     if (!state.date || !state.store) return;
     var input = findDateInput();
     if (!input) return;
+    // 재등록 시 기존 수량 보존 (날짜/시간/지점 변경해도 수량이 1로 초기화되지 않게)
+    var prevRows = selectedRows();
+    var prevCount = 1;
+    if (prevRows.length) {
+      var cInput = prevRows[0].querySelector("input._count");
+      if (cInput && +cInput.value > 0) prevCount = +cInput.value;
+    }
     clearSelectedRows();
     input.value = state.date + (state.time ? " " + state.time : "");
     input.dispatchEvent(new Event("change", { bubbles: false }));
@@ -124,6 +149,10 @@ body:not(.pk-noenhance) #prod_selected_options { display: none !important; }
     for (var i = 0; i < items.length; i++) {
       var label = norm((items[i].querySelector("span") || items[i]).textContent);
       if (label === state.store) { items[i].click(); break; }
+    }
+    // 보존한 수량 복원 — 신규 행은 1로 시작하므로 차이만큼 증가
+    for (var q = 1; q < prevCount; q++) {
+      try { window.SITE_SHOP_DETAIL.increaseOptionCount(0, "prod"); } catch (e) { break; }
     }
     refreshSummary();
   }
@@ -168,6 +197,7 @@ body:not(.pk-noenhance) #prod_selected_options { display: none !important; }
             if (on) on.classList.remove("pk-on");
             btn.classList.add("pk-on");
             timeWrap.classList.remove("pk-hide"); // 날짜 선택 후 시간 노출
+            applyTimeConstraints();               // 오늘이면 지난 시간 비활성
             register();
           });
           calBody.appendChild(btn);

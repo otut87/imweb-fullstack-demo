@@ -33,7 +33,7 @@ flowchart LR
 cd C:\dev\enchante-erp\projects\enchante-pickup
 copy .env.example .env                               # 값 채우기
 ..\..\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
-..\..\.venv\Scripts\python smoke_test.py             # 테스트 (실API 호출 차단 상태로 15개 체크)
+..\..\.venv\Scripts\python smoke_test.py             # 테스트 (실API 호출 차단 상태로 24개 체크)
 ```
 
 - `http://localhost:8000/auth/login` — 최초 1회 인가(토큰 발급)
@@ -60,7 +60,7 @@ copy .env.example .env                               # 값 채우기
 | 인가 | `GET https://openapi.imweb.me/oauth2/authorize` (`responseType`·`clientId`·`redirectUri`·`scope`·`siteCode`·`state` — **camelCase**) |
 | 토큰 발급/갱신 | `POST https://openapi.imweb.me/oauth2/token` (`grantType=authorization_code\|refresh_token`, JSON 본문 OK) |
 | 토큰 수명 | Access **2시간** / Refresh **90일** (갱신 시 둘 다 재발급) — 실발급 확인 |
-| **scope 명칭** | `site-info:write`(인가 필수) `order:read` `order:write` `product:read` — 형식 `카테고리:read\|write` |
+| **scope 명칭** | `site-info:write`(인가 필수) `order:read` `order:write` `product:read` `payment:write`(입금확인) `member-info:read`(회원등급) — 형식 `카테고리:read\|write` |
 | **API 경로** | `GET /site-info`, `GET /orders?page&limit&unitCode`, `GET /products?page&limit&unitCode` (limit 1~100) |
 | **응답 봉투** | 성공 `{statusCode, data:{totalCount,totalPage,currentPage,pageSize,list[]}}` / 오류 `{statusCode, error:{errorCode,message,data}}` |
 | **unitCode** | 사이트 하위 유닛 단위 — `/site-info`의 `unitList[].unitCode`. 주문/상품 조회 필수 |
@@ -69,8 +69,8 @@ copy .env.example .env                               # 값 채우기
 | 웹훅 | 개발자센터에서 이벤트별 URL 1개 등록, 주문 계열 30+ 이벤트, '테스트 보내기' 제공. 별도 '인증정보' 값이 이벤트와 함께 전달됨 |
 | 앱 연동 | **테스트연동 상태로 전 API 사용 가능** (연동완료처리·심사 불필요). 에러 30132=사이트 미연동, 30156=필수 scope 누락 |
 
-### TODO (남은 확정 항목)
+### 확정 완료 / 남은 항목
 
-- [ ] 주문 단건 조회 경로 (`/orders/{orderNo}` 추정) — 실주문 발생 시 검증
-- [ ] 웹훅 실제 페이로드 스펙 → `webhooks.py` 파서를 deep-scan에서 정확 매핑으로 교체
-- [ ] 웹훅 '인증정보' 전달 위치(헤더/바디) 확인 → 검증 로직 연결 (`IMWEB_WEBHOOK_AUTH`)
+- [x] 주문 단건 조회 경로 `GET /orders/{orderNo}` — 실검증 200 확인
+- [x] 웹훅 '인증정보' 전달 위치 — `authorization` 헤더로 확인, `IMWEB_WEBHOOK_AUTH` 검증 연결 완료
+- [ ] 웹훅 실제 페이로드 스펙 → `webhooks.py` 파서를 deep-scan에서 정확 매핑으로 조여가기 (현재 실측 샘플 기준 동작)

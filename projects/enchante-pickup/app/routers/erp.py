@@ -2,6 +2,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import httpx
 
@@ -87,7 +88,8 @@ def list_orders(
 
 
 class StatusUpdate(BaseModel):
-    status: str  # 결제대기/픽업대기/픽업완료/취소/반품
+    # 허용 상태만 받는다(임의 문자열 저장·대시보드 반영 차단, 미허용 값은 422)
+    status: Literal["결제대기", "픽업대기", "픽업완료", "취소", "반품"]
 
 
 @router.post("/api/orders/{order_id}/status")

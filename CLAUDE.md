@@ -10,7 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - [docs/imweb-integration-notes.md](docs/imweb-integration-notes.md) — **실연동으로 확정한 아임웹 지식 총정리.** OAuth(camelCase 파라미터·scope 규칙), API 공통 계약(봉투·unitCode·400 탐침 기법), 주문 도메인(sectionCode 주의·shipping-operation), 웹훅(심사 전 실이벤트 미발송 → 폴링 폴백), 상세페이지 DOM/JS 계약(SITE_SHOP_DETAIL)과 재렌더·FOUC 대응 패턴. **아임웹 관련 작업은 무조건 이 문서부터.**
 - [docs/imweb-openapi-endpoints.md](docs/imweb-openapi-endpoints.md) — 전체 엔드포인트 인덱스(138개, Method+Path+요약)
-- [docs/imweb-openapi-chunk.js](docs/imweb-openapi-chunk.js) — OpenAPI 3.1 풀스펙 번들(파라미터·스키마·에러코드). 엔드포인트 상세는 여기서 Grep
+- [docs/imweb-openapi-reference.md](docs/imweb-openapi-reference.md) — OpenAPI 3.1 레퍼런스(파라미터·스키마·에러코드). 커밋됨 — 스펙 상세는 여기서 Grep
+- `docs/imweb-openapi-chunk.js` — 원본 풀스펙 번들(580KB). **.gitignore 처리(비커밋)** — 로컬에만 존재하니 저장소 문서에서 링크로 참조하지 말 것
 
 ## 공통 명령
 
@@ -19,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```powershell
 # 테스트 (enchante-pickup 예)
 cd C:\dev\enchante-erp\projects\enchante-pickup
-..\..\.venv\Scripts\python smoke_test.py        # 22개 체크, 실API 호출은 env로 차단됨
+..\..\.venv\Scripts\python smoke_test.py        # 24개 체크, 실API 호출은 env로 차단됨
 
 # 로컬 서버
 ..\..\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
@@ -41,11 +42,11 @@ Enchanté 쇼핑몰(support51251.imweb.me)
        ├─ 웹훅(앱 심사 승인 후 활성) ─┐   둘 다 app/routers/webhooks.py의
        └─ 주문 API 폴링 30s(poller.py) ┴→ ingest_order_payload() 공용 파이프라인
             → 지점 라우팅·재고 차감 → SQLite → SSE(events.py) → ERP 대시보드(/erp)
-ERP 상태 변경(픽업대기/픽업완료) → imweb/client.py shipping-operation PATCH → 아임웹 역반영
+ERP 상태 변경(픽업완료) → imweb/client.py shipping-operation PATCH(SHIPPING_COMPLETE) → 아임웹 역반영
 OAuth 토큰: imweb/oauth.py (DB 저장, 만료 5분 전 자동 갱신)
 ```
 
-- 상태 7종: 결제대기→결제완료→상품준비→픽업대기→픽업완료 / 취소 / 반품 (`_map_status`가 아임웹 enum 매핑)
+- 상태 5종(배송없음 상품 기준): 결제대기 → 픽업대기 → 픽업완료 / 취소 / 반품 (`_map_status`가 아임웹 enum 매핑, `STATUS_RANK`로 진행 방향 가드·취소/반품은 종결 랭크)
 - 웹훅 수신은 원본(바디+헤더) 전량 `WebhookEvent`에 보존 후 deep-scan 파싱 — 스펙 확인·재처리용
 - DB 스키마 변경은 `db.py init_db()`의 ALTER 시도 패턴(경량 마이그레이션)을 따른다
 

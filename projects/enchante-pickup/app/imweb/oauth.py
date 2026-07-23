@@ -11,6 +11,7 @@
 TODO(확인): 토큰 요청 본문이 JSON인지 form-urlencoded인지 문서 미명시.
 아래는 JSON으로 구현 — 400 응답 시 form으로 전환해 재시도한다.
 """
+import threading
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
@@ -22,6 +23,21 @@ from ..models import OAuthToken
 
 ACCESS_TOKEN_TTL = timedelta(hours=2)
 REFRESH_MARGIN = timedelta(minutes=5)  # 만료 5분 전부터 선제 갱신
+
+# refresh token은 사용 시 회전(재발급)되므로, 폴러 스레드와 요청 스레드가 동시에
+# 같은 refresh token으로 갱신하면 한쪽이 무효화된 토큰으로 400 실패한다.
+# 갱신 구간을 프로세스 전역 락으로 직렬화한다(데모=단일 워커 전제).
+_refresh_lock = threading.Lock()
+
+
+def _reload_token(session: Session, site_code: str) -> "OAuthToken | None":
+    """다른 스레드/세션이 회전시킨 최신 토큰을 확실히 읽는다(identity map 우회)."""
+    row = session.exec(
+        select(OAuthToken).where(OAuthToken.site_code == site_code)
+    ).first()
+    if row is not None:
+        session.refresh(row)
+    return row
 
 
 def build_authorize_url(state: str) -> str:
@@ -114,7 +130,7 @@ def save_tokens(session: Session, body: dict) -> OAuthToken:
 
 
 def get_valid_access_token(session: Session) -> str:
-    """유효한 access token 반환 — 만료 임박 시 자동 갱신."""
+    """유효한 access token 반환 — 만료 임박 시 자동 갱신(락+더블체크)."""
     s = get_settings()
     row = session.exec(
         select(OAuthToken).where(OAuthToken.site_code == s.imweb_site_code)
@@ -122,5 +138,27 @@ def get_valid_access_token(session: Session) -> str:
     if row is None or not row.refresh_token:
         raise RuntimeError("토큰 없음 — /auth/login 으로 최초 인가부터 진행하세요.")
     if datetime.now() >= row.expires_at - REFRESH_MARGIN:
+        with _refresh_lock:
+            # 락 진입 후 재조회 — 대기 중 다른 스레드가 이미 갱신했으면 그대로 사용
+            row = _reload_token(session, s.imweb_site_code) or row
+            if datetime.now() >= row.expires_at - REFRESH_MARGIN:
+                row = save_tokens(session, refresh_token(row.refresh_token))
+    return row.access_token
+
+
+def force_refresh_access_token(session: Session) -> str:
+    """401 대응 — 현재 access token이 거부됐을 때 강제 갱신.
+
+    락으로 직렬화하고, 락 진입 후 재조회해 stale refresh token 사용을 방지한다.
+    대기 중 다른 스레드가 방금 갱신했으면(토큰 갱신 시각이 최근) 재갱신을 건너뛴다.
+    """
+    s = get_settings()
+    with _refresh_lock:
+        row = _reload_token(session, s.imweb_site_code)
+        if row is None or not row.refresh_token:
+            raise RuntimeError("토큰 없음 — /auth/login 으로 최초 인가부터 진행하세요.")
+        # 대기 중 다른 스레드가 방금(10초 내) 갱신했으면 그 토큰이 유효 — 중복 회전 방지
+        if datetime.now() - row.updated_at < timedelta(seconds=10):
+            return row.access_token
         row = save_tokens(session, refresh_token(row.refresh_token))
     return row.access_token

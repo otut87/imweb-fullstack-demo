@@ -65,14 +65,14 @@ flowchart LR
 
 ```
 고객 주문 (캘린더·시간·지점 선택, 지점별 잔여 재고 확인)
-  → 담당자 카카오톡 알림 + ERP 실시간 등장 [결제대기]
+  → 담당자 카카오톡 알림 + ERP 실시간 등장 [결제대기] · 주문 수집 시점에 지점 재고 차감
   → ERP [입금 확인 처리] 클릭 → 아임웹 입금완료 동기화 → [픽업대기] 자동 전환
-  → 고객 방문 → ERP [픽업완료] → 아임웹 '배송완료' 역동기화 · 지점 재고 차감
+  → 고객 방문 → ERP [픽업완료] → 아임웹 '배송완료' 역동기화
   → 취소/반품은 아임웹 처리 시 ERP 자동 반영
 ```
 
-- 스모크 테스트 **22개 통과** ([`smoke_test.py`](projects/enchante-pickup/smoke_test.py)) — 실측 페이로드 기반
-- 실주문으로 왕복 검증: 주문→알림→입금확인→픽업완료→아임웹 상태 동기화·재고 차감
+- 스모크 테스트 **24개 통과** ([`smoke_test.py`](projects/enchante-pickup/smoke_test.py)) — 실측 페이로드 기반
+- 실주문으로 왕복 검증: 주문→재고 차감·알림→입금확인→픽업완료→아임웹 상태 동기화
 
 ## 기술 하이라이트
 
@@ -111,7 +111,8 @@ flowchart LR
 ├── CLAUDE.md                        # AI 페어프로그래밍 워크스페이스 가이드
 ├── docs/                            # 아임웹 연동 지식 베이스 (실측 기반)
 │   ├── imweb-integration-notes.md   #   OAuth·API 계약·웹훅·프론트 주입 노하우
-│   └── imweb-openapi-endpoints.md   #   전체 엔드포인트 인덱스 (138개)
+│   ├── imweb-openapi-endpoints.md   #   전체 엔드포인트 인덱스 (138개)
+│   └── imweb-openapi-reference.md   #   OpenAPI 레퍼런스 (스키마·파라미터)
 ├── projects/enchante-pickup/        # 픽업 시스템 (FastAPI + sitecode + 배포 구성)
 └── projects/imweb-summary-helper/   # 크롬 익스텐션 — 상품 요약설명 도우미 (MV3)
 ```
